@@ -12,7 +12,8 @@ import VersionHistory from './pages/VersionHistory';
 import ActivityLogs from './pages/ActivityLogs';
 import SubmissionBackup from './pages/SubmissionBackup';
 import SettingsPage from './pages/SettingsPage';
-import { authService, DEMO_USERS } from './services/auth';
+import { authService } from './services/auth';
+import { getMockDb } from './services/api';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -22,14 +23,26 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [totalStorageBytes, setTotalStorageBytes] = useState(0);
+
+  const refreshStorage = () => {
+    try {
+      const db = getMockDb();
+      const total = (db.projects || []).reduce((acc, p) => acc + (p.totalStorageBytes || 0), 0);
+      setTotalStorageBytes(total);
+    } catch {
+      setTotalStorageBytes(0);
+    }
+  };
 
   useEffect(() => {
     const user = authService.getCurrentUser();
     if (user) {
       setCurrentUser(user);
     }
+    refreshStorage();
     setInitialized(true);
-  }, []);
+  }, [activeTab, currentView]);
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
@@ -112,10 +125,11 @@ export default function App() {
         }}
         isOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        totalStorageBytes={totalStorageBytes}
       />
 
       {/* Main Content Area (Offset by Sidebar on Desktop) */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 bg-sky-50/25">
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-60 bg-slate-50/60">
         {/* Top Navigation Bar */}
         <TopNavbar
           currentUser={currentUser}
@@ -206,16 +220,12 @@ export default function App() {
         </main>
 
         {/* Minimal Footer */}
-        <footer className="border-t border-sky-100 bg-white py-4 px-6 text-xs text-slate-600">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p className="font-bold text-[#0B2545]">CloudForge • Advanced Cloud-Based Collaborative Project Workspace</p>
-            <div className="flex items-center space-x-3 text-[11px] font-mono text-slate-500">
-              <span>UCS531 Cloud Computing</span>
-              <span>•</span>
-              <button onClick={() => setCurrentView('home')} className="font-semibold text-sky-600 hover:text-[#0B2545] hover:underline">
-                Public Landing Page
-              </button>
-            </div>
+        <footer className="border-t border-slate-200 bg-white py-3.5 px-6 text-xs text-slate-500">
+          <div className="flex items-center justify-between">
+            <span>CloudForge</span>
+            <button onClick={() => setCurrentView('home')} className="text-sky-600 hover:underline font-medium">
+              Landing Page
+            </button>
           </div>
         </footer>
       </div>

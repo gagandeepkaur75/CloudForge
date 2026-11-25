@@ -1,21 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  History, 
-  Search, 
-  RotateCcw, 
-  Download, 
-  Eye, 
-  CheckCircle2, 
-  AlertTriangle, 
-  HardDrive, 
-  Calendar, 
-  User, 
-  FileText,
-  Copy,
-  Check
+import {
+  Search,
+  RotateCcw,
+  Download,
+  CheckCircle2,
+  AlertTriangle,
+  FileText
 } from 'lucide-react';
 import { api, getMockDb } from '../services/api';
-import FilePreviewModal from '../components/FilePreviewModal';
 
 export default function VersionHistory({ currentUser, globalSearch = '' }) {
   const [projects, setProjects] = useState([]);
@@ -27,7 +19,6 @@ export default function VersionHistory({ currentUser, globalSearch = '' }) {
   const [loading, setLoading] = useState(true);
   const [restoringId, setRestoringId] = useState(null);
   const [alertMsg, setAlertMsg] = useState(null);
-  const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -86,58 +77,38 @@ export default function VersionHistory({ currentUser, globalSearch = '' }) {
   };
 
   const handleRestore = async (ver) => {
-    if (!window.confirm(`Are you sure you want to restore '${selectedFileName}' to historical version ${ver.versionNumber}? A new S3 version will be generated without losing previous versions.`)) {
+    if (!window.confirm(`Restore '${selectedFileName}' to ${ver.versionNumber}? A new version will be created.`)) {
       return;
     }
 
     setRestoringId(ver.versionId);
     setAlertMsg(null);
     try {
-      const res = await api.restoreVersion(selectedProjectId, selectedFileName, ver.versionId);
+      await api.restoreVersion(selectedProjectId, selectedFileName, ver.versionId);
       setAlertMsg({
         type: 'success',
-        text: `Version ${ver.versionNumber} successfully restored! Created new active S3 Version ID: ${res.data.newVersionId.substring(0, 14)}...`
+        text: `Restored ${selectedFileName} to ${ver.versionNumber} as a new active version.`
       });
       await loadVersions(selectedProjectId, selectedFileName);
-    } catch (err) {
-      setAlertMsg({ type: 'error', text: 'Failed to restore historical version.' });
+    } catch {
+      setAlertMsg({ type: 'error', text: 'Failed to restore version.' });
     } finally {
       setRestoringId(null);
     }
   };
 
   const handleDownload = (ver) => {
-    alert(`Downloading ${selectedFileName} (${ver.versionNumber}) directly from Amazon S3 version archive.`);
-  };
-
-  const handlePreview = (ver) => {
-    setPreviewFile({
-      fileName: `${selectedFileName} (${ver.versionNumber})`,
-      folder: 'Version Archive',
-      fileType: selectedFileName.split('.').pop(),
-      sizeBytes: ver.sizeBytes,
-      uploadedBy: ver.modifiedBy,
-      versionCount: versions.length,
-      content: `# ${selectedFileName} - Version ${ver.versionNumber}\n# Version ID: ${ver.versionId}\n# Modified By: ${ver.modifiedBy}\n# Notes: ${ver.notes || 'S3 Versioning Snapshot'}`
-    });
-  };
-
-  const formatBytes = (bytes) => {
-    if (!bytes || bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    alert(`Downloading ${selectedFileName} (${ver.versionNumber}).`);
   };
 
   const formatDate = (iso) => {
     if (!iso) return '-';
     try {
-      return new Date(iso).toLocaleString(undefined, { 
-        month: 'short', 
-        day: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      return new Date(iso).toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
       });
     } catch {
       return iso;
@@ -145,200 +116,159 @@ export default function VersionHistory({ currentUser, globalSearch = '' }) {
   };
 
   const effectiveSearch = (search || globalSearch || '').toLowerCase();
-  const filteredFiles = files.filter(f => !effectiveSearch || f.fileName.toLowerCase().includes(effectiveSearch));
+  const filteredFiles = files.filter(
+    (f) => !effectiveSearch || f.fileName.toLowerCase().includes(effectiveSearch)
+  );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-black text-[#0B2545] tracking-tight flex items-center space-x-2">
-          <span>Version History and File Recovery</span>
-          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-[#0B2545] border border-sky-200">
-            S3 Versioning
-          </span>
-        </h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Inspect immutable S3 object version iterations and execute point-in-time file recovery via atomic <code className="text-[#0B2545] bg-sky-50 px-1 rounded font-mono font-bold">s3:CopyObject</code>.
-        </p>
+        <h1 className="text-2xl font-bold text-[#0B2545] tracking-tight">Version History</h1>
+        <p className="text-sm text-slate-500 mt-1">View and restore previous file versions.</p>
       </div>
 
       {alertMsg && (
-        <div className={`p-4 rounded-2xl text-xs font-medium flex items-center space-x-2 ${
-          alertMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
-        }`}>
-          {alertMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />}
+        <div
+          className={`p-3 rounded-lg text-xs font-medium flex items-center space-x-2 ${
+            alertMsg.type === 'success'
+              ? 'bg-sky-50 text-[#0B2545] border border-sky-200'
+              : 'bg-red-50 text-red-700 border border-red-200'
+          }`}
+        >
+          {alertMsg.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+          )}
           <span>{alertMsg.text}</span>
         </div>
       )}
 
-      {/* Selectors Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-700 mb-1">Select Project</label>
-          <select
-            value={selectedProjectId}
-            onChange={(e) => handleProjectSelect(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-900 font-bold focus:outline-none focus:border-sky-500"
-          >
-            {projects.map((p) => (
-              <option key={p.projectId} value={p.projectId}>{p.title}</option>
-            ))}
-          </select>
+      {/* Search & Project Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="relative w-full sm:w-72">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search files..."
+            className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-9 pr-3 text-sm text-[#0B2545] placeholder-slate-400 focus:outline-none focus:border-sky-500"
+          />
         </div>
 
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-700 mb-1">Search Files in Project</label>
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search file names..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-8 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-sky-500"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-700 mb-1">Selected File</label>
-          <select
-            value={selectedFileName}
-            onChange={(e) => handleFileSelect(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-sky-500"
-          >
-            {filteredFiles.map((f) => (
-              <option key={f.fileId} value={f.fileName}>{f.fileName} ({f.versionCount || 1} versions)</option>
-            ))}
-          </select>
-        </div>
+        <select
+          value={selectedProjectId}
+          onChange={(e) => handleProjectSelect(e.target.value)}
+          className="bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm text-[#0B2545] font-medium focus:outline-none focus:border-sky-500"
+          aria-label="Filter by project"
+        >
+          {projects.map((p) => (
+            <option key={p.projectId} value={p.projectId}>
+              {p.title}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Version History Table */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <FileText className="w-4 h-4 text-sky-600" />
-            <h3 className="text-sm font-bold text-slate-900">
-              Version Timeline for <span className="font-mono text-sky-700">{selectedFileName || 'File'}</span>
-            </h3>
+      {/* Main Layout: File List + Versions Table */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Simple File List */}
+        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 self-start">
+          <div className="px-4 py-3 text-xs font-semibold text-slate-500 bg-slate-50 rounded-t-xl">
+            Files
           </div>
-          <span className="text-xs text-slate-400 font-mono font-medium">
-            {versions.length} versions recorded
-          </span>
+          {loading ? (
+            <div className="p-4 text-xs text-slate-500">Loading...</div>
+          ) : filteredFiles.length === 0 ? (
+            <div className="p-4 text-xs text-slate-500">No files found.</div>
+          ) : (
+            filteredFiles.map((f) => {
+              const isSelected = f.fileName === selectedFileName;
+              return (
+                <button
+                  key={f.fileName}
+                  type="button"
+                  onClick={() => handleFileSelect(f.fileName)}
+                  className={`w-full px-4 py-3 text-left text-xs font-medium flex items-center space-x-2.5 transition ${
+                    isSelected
+                      ? 'bg-sky-50 text-[#0B2545] font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <FileText className={`w-4 h-4 shrink-0 ${isSelected ? 'text-sky-600' : 'text-slate-400'}`} />
+                  <span className="truncate">{f.fileName}</span>
+                </button>
+              );
+            })
+          )}
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
-          <table className="w-full text-left text-sm text-slate-700">
-            <thead className="bg-slate-50 text-xs uppercase font-bold text-slate-500 border-b border-slate-200">
+        {/* Version History Table */}
+        <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 overflow-x-auto self-start">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs font-semibold text-slate-500 border-b border-slate-200">
               <tr>
-                <th scope="col" className="px-5 py-3.5">Version</th>
-                <th scope="col" className="px-5 py-3.5">S3 Version ID</th>
-                <th scope="col" className="px-5 py-3.5">Modified By</th>
-                <th scope="col" className="px-5 py-3.5">Modified Date</th>
-                <th scope="col" className="px-5 py-3.5">File Size</th>
-                <th scope="col" className="px-5 py-3.5">Notes</th>
-                <th scope="col" className="px-5 py-3.5 text-right">Actions</th>
+                <th className="px-5 py-3">Version</th>
+                <th className="px-5 py-3">Modified By</th>
+                <th className="px-5 py-3">Date</th>
+                <th className="px-5 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {versions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-xs text-slate-400">
-                    No historical versions available for this file yet.
+                  <td colSpan={4} className="px-5 py-10 text-center text-xs text-slate-500">
+                    Select a file to view its version history.
                   </td>
                 </tr>
               ) : (
-                versions.map((ver) => (
-                  <tr key={ver.versionId} className={`hover:bg-sky-50/20 transition ${ver.isLatest ? 'bg-sky-50/30' : ''}`}>
-                    {/* Version Badge */}
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        <span className={`text-xs font-mono font-bold px-2.5 py-0.5 rounded-full ${
-                          ver.isLatest ? 'bg-sky-500 text-white shadow-xs' : 'bg-slate-100 text-slate-700'
-                        }`}>
-                          {ver.versionNumber}
-                        </span>
-                        {ver.isLatest && (
-                          <span className="text-[11px] font-bold text-sky-700 flex items-center space-x-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Current</span>
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Version ID */}
-                    <td className="px-5 py-4 whitespace-nowrap font-mono text-xs text-slate-500">
-                      {ver.versionId}
-                    </td>
-
-                    {/* Modified By */}
-                    <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-600 font-medium">
-                      {ver.modifiedBy}
-                    </td>
-
-                    {/* Modified Date */}
-                    <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-400 font-mono">
-                      {formatDate(ver.modifiedDate)}
-                    </td>
-
-                    {/* File Size */}
-                    <td className="px-5 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-600">
-                      {formatBytes(ver.sizeBytes)}
-                    </td>
-
-                    {/* Notes */}
-                    <td className="px-5 py-4 text-xs text-slate-500 max-w-xs truncate">
-                      {ver.notes || 'Uploaded via CloudForge'}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-5 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end space-x-2">
+                versions.map((ver, idx) => {
+                  const isCurrent = idx === 0;
+                  return (
+                    <tr key={ver.versionId} className="hover:bg-slate-50/70 transition">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-semibold text-[#0B2545]">{ver.versionNumber}</span>
+                          {isCurrent && (
+                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-slate-600">{ver.modifiedBy}</td>
+                      <td className="px-5 py-3.5 text-xs text-slate-500">{formatDate(ver.timestamp)}</td>
+                      <td className="px-5 py-3.5 text-right space-x-1.5 whitespace-nowrap">
                         <button
-                          onClick={() => handlePreview(ver)}
-                          title="Preview Version"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
+                          type="button"
                           onClick={() => handleDownload(ver)}
-                          title="Download Version"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-medium text-[#0B2545] hover:bg-slate-50"
                         >
-                          <Download className="w-4 h-4" />
+                          <Download className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Download</span>
                         </button>
-                        {!ver.isLatest ? (
+                        {!isCurrent && (
                           <button
+                            type="button"
                             onClick={() => handleRestore(ver)}
                             disabled={restoringId === ver.versionId}
-                            className="px-3 py-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs flex items-center space-x-1 transition disabled:opacity-50"
+                            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-[#0B2545] hover:bg-[#13315C] text-white text-xs font-medium disabled:opacity-50"
                           >
-                            <RotateCcw className={`w-3 h-3 ${restoringId === ver.versionId ? 'animate-spin' : ''}`} />
+                            <RotateCcw className="w-3.5 h-3.5" />
                             <span>{restoringId === ver.versionId ? 'Restoring...' : 'Restore'}</span>
                           </button>
-                        ) : (
-                          <span className="text-[11px] font-bold text-slate-400 px-3 py-1">Active</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
-
-      {/* File Preview Modal */}
-      <FilePreviewModal
-        isOpen={!!previewFile}
-        onClose={() => setPreviewFile(null)}
-        file={previewFile}
-        onDownload={handleDownload}
-      />
     </div>
   );
 }
