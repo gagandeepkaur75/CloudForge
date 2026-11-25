@@ -3,7 +3,6 @@
 **Course:** Cloud Computing - UCS531  
 **Department:** Computer Science & Engineering, Thapar Institute of Engineering & Technology  
 **Faculty Advisor:** Dr. Anil Singh  
-**Lab Session:** L208 (Monday 3:30 PM)  
 
 **Team Details:**
 * **Gagandeep Kaur** (Roll No: 1024170063, Email: `gkaur10_be24@thapar.edu`)
