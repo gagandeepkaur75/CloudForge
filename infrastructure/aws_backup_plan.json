@@ -1,0 +1,33 @@
+{
+  "BackupPlan": {
+    "BackupPlanName": "CloudForge_Daily_Protection_Plan",
+    "Rules": [
+      {
+        "RuleName": "DailyMidnightSnapshot",
+        "TargetBackupVaultName": "CloudForgeBackupVault",
+        "ScheduleExpression": "cron(0 0 * * ? *)",
+        "StartWindowMinutes": 60,
+        "CompletionWindowMinutes": 180,
+        "Lifecycle": {
+          "MoveToColdStorageAfterDays": 30,
+          "DeleteAfterDays": 365
+        },
+        "RecoveryPointTags": {
+          "Project": "CloudForge",
+          "Course": "UCS531",
+          "Environment": "Production"
+        }
+      }
+    ]
+  },
+  "SelectionCriteria": {
+    "SelectionName": "CloudForge_Resources_Selection",
+    "IamRoleArn": "arn:aws:iam::ACCOUNT_ID:role/service-role/AWSBackupDefaultServiceRole",
+    "Resources": [
+      "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/CloudForge_Projects",
+      "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/CloudForge_FileVersions",
+      "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/CloudForge_ActivityLogs",
+      "arn:aws:s3:::cloudforge-storage-*"
+    ]
+  }
+}

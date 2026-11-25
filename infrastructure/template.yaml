@@ -1,0 +1,179 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: CloudForge - Advanced Cloud-Based Collaborative Project Workspace (UCS531)
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.11
+    Environment:
+      Variables:
+        CLOUDFORGE_S3_BUCKET: !Ref StorageBucket
+        PROJECTS_TABLE: !Ref ProjectsTable
+        FILE_VERSIONS_TABLE: !Ref FileVersionsTable
+        ACTIVITY_LOGS_TABLE: !Ref ActivityLogsTable
+
+Resources:
+  # ----------------------------------------------------------------------------
+  # Storage: S3 Bucket with Versioning & EventBridge enabled
+  # ----------------------------------------------------------------------------
+  StorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'cloudforge-workspace-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT, POST, HEAD]
+            AllowedOrigins: ['*']
+            ExposeHeaders: [ETag, x-amz-version-id]
+            MaxAge: 3000
+
+  # ----------------------------------------------------------------------------
+  # Database: DynamoDB Tables
+  # ----------------------------------------------------------------------------
+  ProjectsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CloudForge_Projects
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+
+  FileVersionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CloudForge_FileVersions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: fileId
+          AttributeType: S
+        - AttributeName: versionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: fileId
+          KeyType: HASH
+        - AttributeName: versionId
+          KeyType: RANGE
+
+  ActivityLogsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CloudForge_ActivityLogs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+
+  # ----------------------------------------------------------------------------
+  # Event Processing: SQS Queue & EventBridge Rule
+  # ----------------------------------------------------------------------------
+  FileEventsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: cloudforge-file-events-queue
+      VisibilityTimeout: 120
+
+  QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref FileEventsQueue
+      PolicyDocument:
+        Statement:
+          - Action: sqs:SendMessage
+            Effect: Allow
+            Resource: !GetAtt FileEventsQueue.Arn
+            Principal:
+              Service: events.amazonaws.com
+
+  S3EventsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: cloudforge-s3-events-rule
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - Object Created
+          - Object Deleted
+        detail:
+          bucket:
+            name:
+              - !Ref StorageBucket
+      Targets:
+        - Arn: !GetAtt FileEventsQueue.Arn
+          Id: CloudForgeSQSTarget
+
+  # ----------------------------------------------------------------------------
+  # Backend Lambdas
+  # ----------------------------------------------------------------------------
+  ApiHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/api_handler/
+      Handler: main.handler
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref StorageBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileVersionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ActivityLogsTable
+      Events:
+        RootApi:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+  EventWorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/event_worker/
+      Handler: worker.lambda_handler
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref StorageBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileVersionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ActivityLogsTable
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt FileEventsQueue.Arn
+            BatchSize: 10
+
+Outputs:
+  ApiEndpoint:
+    Description: HTTP API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  S3Bucket:
+    Description: S3 Storage Bucket
+    Value: !Ref StorageBucket
+  SQSQueueUrl:
+    Description: SQS Queue URL
+    Value: !Ref FileEventsQueue
