@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { api, getMockDb } from '../services/api';
 
-export default function FileSharing({ currentUser }) {
+export default function FileSharing({ currentUser, globalSearch = '' }) {
   const [sharedLinks, setSharedLinks] = useState([]);
   const [projects, setProjects] = useState([]);
   const [filesMap, setFilesMap] = useState({});
@@ -112,10 +112,12 @@ export default function FileSharing({ currentUser }) {
     }
   };
 
+  const effectiveSearch = (search || globalSearch || '').toLowerCase();
   const filteredLinks = sharedLinks.filter(l => 
-    l.fileName?.toLowerCase().includes(search.toLowerCase()) ||
-    l.projectName?.toLowerCase().includes(search.toLowerCase()) ||
-    l.sharedBy?.toLowerCase().includes(search.toLowerCase())
+    !effectiveSearch ||
+    l.fileName?.toLowerCase().includes(effectiveSearch) ||
+    l.projectName?.toLowerCase().includes(effectiveSearch) ||
+    l.sharedBy?.toLowerCase().includes(effectiveSearch)
   );
 
   const availableFiles = filesMap[selectedProjectId] || [];
@@ -125,9 +127,9 @@ export default function FileSharing({ currentUser }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
+          <h1 className="text-2xl font-black text-[#0B2545] tracking-tight flex items-center space-x-2">
             <span>Secure File Sharing</span>
-            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-[#0B2545] border border-sky-200">
               {filteredLinks.length} Active & Past Links
             </span>
           </h1>
@@ -138,9 +140,9 @@ export default function FileSharing({ currentUser }) {
 
         <button
           onClick={() => { setNewlyGenerated(null); setShowModal(true); }}
-          className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition self-start sm:self-auto"
+          className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-[#0B2545] hover:bg-[#13315C] text-white font-bold text-xs shadow-md shadow-sky-500/20 transition self-start sm:self-auto"
         >
-          <Share2 className="w-4 h-4" />
+          <Share2 className="w-4 h-4 text-sky-300" />
           <span>Generate Share Link</span>
         </button>
       </div>

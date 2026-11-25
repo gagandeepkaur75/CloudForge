@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { api, getMockDb } from '../services/api';
 
-export default function TeamMembers({ currentUser }) {
+export default function TeamMembers({ currentUser, globalSearch = '' }) {
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [members, setMembers] = useState([]);
@@ -91,22 +91,24 @@ export default function TeamMembers({ currentUser }) {
     setAlertMsg({ type: 'success', text: `Removed ${email} from the workspace.` });
   };
 
+  const effectiveSearch = (search || globalSearch || '').toLowerCase();
   const filteredMembers = members.filter(m => 
-    m.name?.toLowerCase().includes(search.toLowerCase()) || 
-    m.email?.toLowerCase().includes(search.toLowerCase()) ||
-    m.role?.toLowerCase().includes(search.toLowerCase())
+    !effectiveSearch ||
+    m.name?.toLowerCase().includes(effectiveSearch) || 
+    m.email?.toLowerCase().includes(effectiveSearch) ||
+    m.role?.toLowerCase().includes(effectiveSearch)
   );
 
   const getRoleBadge = (role) => {
     switch (role) {
       case 'Admin':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-[#0B2545] text-sky-300 border-[#0B2545]';
       case 'Editor':
-        return 'bg-sky-50 text-sky-700 border-sky-200';
+        return 'bg-sky-100 text-[#0B2545] border-sky-200';
       case 'Viewer':
-        return 'bg-slate-100 text-slate-700 border-slate-200';
+        return 'bg-sky-50 text-sky-700 border-sky-200';
       default:
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+        return 'bg-sky-50 text-[#0B2545] border-sky-200';
     }
   };
 
@@ -115,9 +117,9 @@ export default function TeamMembers({ currentUser }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
+          <h1 className="text-2xl font-black text-[#0B2545] tracking-tight flex items-center space-x-2">
             <span>Team Members and Permissions</span>
-            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-[#0B2545] border border-sky-200">
               {filteredMembers.length} Members
             </span>
           </h1>
@@ -128,9 +130,9 @@ export default function TeamMembers({ currentUser }) {
 
         <button
           onClick={() => setShowInviteModal(true)}
-          className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition self-start sm:self-auto"
+          className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-[#0B2545] hover:bg-[#13315C] text-white font-bold text-xs shadow-md shadow-sky-500/20 transition self-start sm:self-auto"
         >
-          <UserPlus className="w-4 h-4" />
+          <UserPlus className="w-4 h-4 text-sky-300" />
           <span>Invite Member</span>
         </button>
       </div>

@@ -134,9 +134,9 @@ export default function SubmissionBackup({ currentUser }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
+          <h1 className="text-2xl font-black text-[#0B2545] tracking-tight flex items-center space-x-2">
             <span>Project Submission & Disaster Backup</span>
-            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-[#0B2545] border border-sky-200">
               Immutable Archives
             </span>
           </h1>
@@ -147,9 +147,9 @@ export default function SubmissionBackup({ currentUser }) {
 
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 transition self-start sm:self-auto"
+          className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-[#0B2545] hover:bg-[#13315C] text-white font-bold text-xs shadow-md shadow-sky-500/20 transition self-start sm:self-auto"
         >
-          <Archive className="w-4 h-4" />
+          <Archive className="w-4 h-4 text-sky-300" />
           <span>Create Final Snapshot</span>
         </button>
       </div>

@@ -61,7 +61,7 @@ export default function SettingsPage({ currentUser, onUserChange, onLogout }) {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
+        <h1 className="text-2xl font-black text-[#0B2545] tracking-tight flex items-center space-x-2">
           <span>Workspace Settings</span>
         </h1>
         <p className="text-xs text-slate-500 mt-1">
@@ -70,13 +70,13 @@ export default function SettingsPage({ currentUser, onUserChange, onLogout }) {
       </div>
 
       {/* 1. Profile Settings */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div className="flex items-center space-x-3 pb-3 border-b border-slate-100">
-          <div className="p-2 rounded-xl bg-blue-100 text-blue-700">
+      <div className="bg-white rounded-3xl border border-sky-100 p-6 shadow-xs space-y-5">
+        <div className="flex items-center space-x-3 pb-3 border-b border-sky-100">
+          <div className="p-2 rounded-xl bg-sky-100 text-[#0B2545]">
             <User className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-900">Profile Settings</h3>
+            <h3 className="text-base font-bold text-[#0B2545]">Profile Settings</h3>
             <p className="text-xs text-slate-500">Your student identity displayed to project team members.</p>
           </div>
         </div>

@@ -110,10 +110,10 @@ export default function Login({ onLoginSuccess, onGoHome }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50/70 via-white to-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-sky-50/70 via-white to-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Decorative Blur Orbs */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-sky-400/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-10 right-1/4 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-sky-300/15 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-10 right-1/4 w-80 h-80 bg-sky-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* Back to Home Button */}
       {onGoHome && (
@@ -130,10 +130,10 @@ export default function Login({ onLoginSuccess, onGoHome }) {
 
       {/* Logo & Branding */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 shadow-xl shadow-sky-500/25 mb-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#0B2545] to-sky-500 shadow-xl shadow-sky-500/25 mb-4">
           <Cloud className="w-9 h-9 text-white" />
         </div>
-        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Cloud<span className="text-sky-500">Forge</span></h2>
+        <h2 className="text-3xl font-black text-[#0B2545] tracking-tight">Cloud<span className="text-sky-500">Forge</span></h2>
         <p className="mt-1 text-sm text-slate-600 font-medium">
           {isSignUp ? 'Create your collaborative student workspace account' : 'Welcome back! Sign in to your workspace'}
         </p>
@@ -355,10 +355,10 @@ export default function Login({ onLoginSuccess, onGoHome }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-sm font-bold shadow-lg shadow-sky-500/25 transition flex items-center justify-center space-x-2 disabled:opacity-50 mt-3"
+              className="w-full py-3 px-4 rounded-xl bg-[#0B2545] hover:bg-[#13315C] text-white text-sm font-bold shadow-lg shadow-sky-500/20 transition flex items-center justify-center space-x-2 disabled:opacity-50 mt-3"
             >
               <span>{loading ? 'Processing...' : isSignUp ? 'Create CloudForge Account' : 'Sign In to Workspace'}</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 text-sky-300" />
             </button>
           </form>
 

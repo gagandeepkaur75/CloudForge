@@ -68,8 +68,8 @@ export default function App() {
 
   if (!initialized) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-sky-500 border-t-[#0B2545] rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -102,7 +102,7 @@ export default function App() {
 
   // 3. SaaS Dashboard Application Shell with Persistent Left Sidebar & Top Navbar
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex font-sans antialiased">
+    <div className="min-h-screen bg-white text-[#0B2545] flex font-sans antialiased">
       {/* Persistent Left Sidebar */}
       <Sidebar
         currentTab={activeTab === 'workspace' ? 'projects' : activeTab}
@@ -115,7 +115,7 @@ export default function App() {
       />
 
       {/* Main Content Area (Offset by Sidebar on Desktop) */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 bg-sky-50/25">
         {/* Top Navigation Bar */}
         <TopNavbar
           currentUser={currentUser}
@@ -136,6 +136,7 @@ export default function App() {
           {activeTab === 'dashboard' && (
             <DashboardOverview
               currentUser={currentUser}
+              globalSearch={globalSearch}
               onSelectProject={handleSelectProject}
               onNavigateTab={(tab) => setActiveTab(tab)}
             />
@@ -143,6 +144,7 @@ export default function App() {
 
           {activeTab === 'projects' && (
             <MyProjects
+              globalSearch={globalSearch}
               onSelectProject={handleSelectProject}
             />
           )}
@@ -151,6 +153,7 @@ export default function App() {
             <ProjectWorkspace
               project={selectedProject || { projectId: 'proj-ucs531-team04', title: 'CloudForge Serverless Workspace', description: 'Academic project workspace.' }}
               currentUser={currentUser}
+              globalSearch={globalSearch}
               onBack={() => {
                 setSelectedProject(null);
                 setActiveTab('projects');
@@ -161,30 +164,35 @@ export default function App() {
           {activeTab === 'team' && (
             <TeamMembers
               currentUser={currentUser}
+              globalSearch={globalSearch}
             />
           )}
 
           {activeTab === 'sharing' && (
             <FileSharing
               currentUser={currentUser}
+              globalSearch={globalSearch}
             />
           )}
 
           {activeTab === 'versions' && (
             <VersionHistory
               currentUser={currentUser}
+              globalSearch={globalSearch}
             />
           )}
 
           {activeTab === 'activity' && (
             <ActivityLogs
               currentUser={currentUser}
+              globalSearch={globalSearch}
             />
           )}
 
           {activeTab === 'submission' && (
             <SubmissionBackup
               currentUser={currentUser}
+              globalSearch={globalSearch}
             />
           )}
 
@@ -198,13 +206,13 @@ export default function App() {
         </main>
 
         {/* Minimal Footer */}
-        <footer className="border-t border-slate-200 bg-white py-4 px-6 text-xs text-slate-500">
+        <footer className="border-t border-sky-100 bg-white py-4 px-6 text-xs text-slate-600">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p className="font-semibold text-slate-700">CloudForge • Advanced Cloud-Based Collaborative Project Workspace</p>
-            <div className="flex items-center space-x-3 text-[11px] font-mono text-slate-400">
+            <p className="font-bold text-[#0B2545]">CloudForge • Advanced Cloud-Based Collaborative Project Workspace</p>
+            <div className="flex items-center space-x-3 text-[11px] font-mono text-slate-500">
               <span>UCS531 Cloud Computing</span>
               <span>•</span>
-              <button onClick={() => setCurrentView('home')} className="text-sky-600 hover:underline">
+              <button onClick={() => setCurrentView('home')} className="font-semibold text-sky-600 hover:text-[#0B2545] hover:underline">
                 Public Landing Page
               </button>
             </div>

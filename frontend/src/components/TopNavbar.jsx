@@ -49,25 +49,25 @@ export default function TopNavbar({
   const unreadCount = notifications.filter(n => n.unread).length;
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shadow-2xs">
+    <header className="sticky top-0 z-30 h-16 bg-white border-b border-sky-100 px-4 sm:px-6 flex items-center justify-between shadow-2xs">
       {/* Left: Mobile Toggle & Search */}
       <div className="flex items-center space-x-3 flex-1 max-w-lg">
         <button
           onClick={onToggleMobileSidebar}
-          className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 lg:hidden"
+          className="p-2 rounded-xl text-[#0B2545] hover:bg-sky-50 lg:hidden"
         >
           <Menu className="w-5 h-5" />
         </button>
 
         {/* Global Search Bar */}
         <div className="relative w-full max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-sky-500" />
           <input
             type="text"
             value={searchQuery || ''}
             onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
             placeholder="Search projects, files, members..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-1.5 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:bg-white transition"
+            className="w-full bg-sky-50/60 border border-sky-200 rounded-xl py-1.5 pl-9 pr-3 text-xs text-[#0B2545] placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:bg-white transition"
           />
         </div>
       </div>
@@ -75,16 +75,16 @@ export default function TopNavbar({
       {/* Right Controls */}
       <div className="flex items-center space-x-3 sm:space-x-4">
         {/* Mode Pill */}
-        <div className="hidden md:flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs font-semibold">
-          <Radio className={`w-3 h-3 ${isMock ? 'text-amber-500 animate-pulse' : 'text-emerald-500 animate-pulse'}`} />
-          <span className="text-slate-700">{isMock ? 'Local Engine' : 'AWS Cloud'}</span>
+        <div className="hidden md:flex items-center space-x-1.5 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-xs font-semibold">
+          <Radio className={`w-3 h-3 ${isMock ? 'text-sky-500 animate-pulse' : 'text-emerald-500 animate-pulse'}`} />
+          <span className="text-[#0B2545]">{isMock ? 'Local Engine' : 'AWS Cloud'}</span>
         </div>
 
         {/* Notifications Icon & Popover */}
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
+            className="relative p-2 rounded-xl text-[#0B2545] hover:bg-sky-50 transition"
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
@@ -93,21 +93,21 @@ export default function TopNavbar({
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-900">Notifications ({unreadCount} new)</span>
+            <div className="absolute right-0 mt-2 w-80 bg-white border border-sky-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+              <div className="px-4 py-3 bg-sky-50/80 border-b border-sky-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-[#0B2545]">Notifications ({unreadCount} new)</span>
                 {unreadCount > 0 && (
-                  <button onClick={markAllRead} className="text-[11px] font-bold text-sky-600 hover:underline">
+                  <button onClick={markAllRead} className="text-[11px] font-bold text-sky-600 hover:text-[#0B2545] hover:underline">
                     Mark all read
                   </button>
                 )}
               </div>
-              <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+              <div className="divide-y divide-sky-100 max-h-64 overflow-y-auto">
                 {notifications.map((n) => (
-                  <div key={n.id} className={`p-3 text-xs flex items-start space-x-2.5 ${n.unread ? 'bg-sky-50/40' : ''}`}>
+                  <div key={n.id} className={`p-3 text-xs flex items-start space-x-2.5 ${n.unread ? 'bg-sky-50/50' : ''}`}>
                     <div className="w-2 h-2 rounded-full bg-sky-500 mt-1 shrink-0"></div>
                     <div className="flex-1">
-                      <p className="text-slate-800 font-medium">{n.text}</p>
+                      <p className="text-[#0B2545] font-medium">{n.text}</p>
                       <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">{n.time}</span>
                     </div>
                   </div>
@@ -121,24 +121,24 @@ export default function TopNavbar({
         <div className="relative">
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="flex items-center space-x-2.5 p-1 rounded-xl hover:bg-slate-100 transition"
+            className="flex items-center space-x-2.5 p-1 rounded-xl hover:bg-sky-50 transition"
           >
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-xs text-white shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#0B2545] to-sky-500 flex items-center justify-center font-bold text-xs text-white shadow-xs">
               {currentUser?.avatar || currentUser?.name?.substring(0, 2).toUpperCase() || 'U'}
             </div>
             <div className="hidden sm:block text-left text-xs">
-              <p className="font-bold text-slate-900 leading-tight">{currentUser?.name || 'Student'}</p>
-              <p className="text-[10px] font-semibold text-slate-500">{currentUser?.role || 'Admin'}</p>
+              <p className="font-bold text-[#0B2545] leading-tight">{currentUser?.name || 'Student'}</p>
+              <p className="text-[10px] font-semibold text-sky-600">{currentUser?.role || 'Admin'}</p>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+            <ChevronDown className="w-3.5 h-3.5 text-sky-500 hidden sm:block" />
           </button>
 
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden py-2 divide-y divide-slate-100">
+            <div className="absolute right-0 mt-2 w-64 bg-white border border-sky-200 rounded-2xl shadow-xl z-50 overflow-hidden py-2 divide-y divide-sky-100">
               <div className="px-4 py-2.5">
-                <p className="text-xs font-bold text-slate-900">{currentUser?.name}</p>
+                <p className="text-xs font-bold text-[#0B2545]">{currentUser?.name}</p>
                 <p className="text-[11px] text-slate-500 truncate font-mono">{currentUser?.email}</p>
-                <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+                <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-[#0B2545] border border-sky-200">
                   {currentUser?.role || 'Admin'}
                 </span>
               </div>

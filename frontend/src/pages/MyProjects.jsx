@@ -18,7 +18,7 @@ import {
 import { api, getMockDb } from '../services/api';
 import CreateProjectModal from '../components/CreateProjectModal';
 
-export default function MyProjects({ onSelectProject }) {
+export default function MyProjects({ globalSearch = '', onSelectProject }) {
   const [projects, setProjects] = useState([]);
   const [filesMap, setFilesMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -77,9 +77,10 @@ export default function MyProjects({ onSelectProject }) {
     await loadProjects();
   };
 
+  const effectiveSearch = (search || globalSearch || '').toLowerCase();
   const filteredProjects = projects.filter((p) => {
-    const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase()) || 
-                          (p.description && p.description.toLowerCase().includes(search.toLowerCase()));
+    const matchesSearch = !effectiveSearch || p.title.toLowerCase().includes(effectiveSearch) || 
+                          (p.description && p.description.toLowerCase().includes(effectiveSearch));
     const matchesStatus = statusFilter === 'All' ? true : 
                           statusFilter === 'Submitted' ? p.snapshotStatus === 'SUBMITTED' || p.status === 'Submitted' :
                           p.snapshotStatus !== 'SUBMITTED' && p.status !== 'Submitted';
@@ -100,9 +101,9 @@ export default function MyProjects({ onSelectProject }) {
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
+          <h1 className="text-2xl font-black text-[#0B2545] tracking-tight flex items-center space-x-2">
             <span>My Projects</span>
-            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-[#0B2545] border border-sky-200">
               {filteredProjects.length}
             </span>
           </h1>
@@ -113,36 +114,36 @@ export default function MyProjects({ onSelectProject }) {
 
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition self-start sm:self-auto"
+          className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-[#0B2545] hover:bg-[#13315C] text-white font-bold text-xs shadow-md shadow-sky-500/20 transition self-start sm:self-auto"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 text-sky-300" />
           <span>Create New Project</span>
         </button>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-sky-100 shadow-2xs">
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-sky-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search projects by name or description..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-1.5 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:bg-white"
+            className="w-full bg-sky-50/50 border border-sky-200 rounded-xl py-1.5 pl-9 pr-3 text-xs text-[#0B2545] placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:bg-white"
           />
         </div>
 
         <div className="flex items-center space-x-2 self-start sm:self-auto">
-          <span className="text-xs font-bold text-slate-500">Status:</span>
+          <span className="text-xs font-bold text-[#0B2545]">Status:</span>
           {['All', 'In Progress', 'Submitted'].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
               className={`px-3 py-1 rounded-xl text-xs font-bold transition ${
                 statusFilter === st
-                  ? 'bg-sky-500 text-white shadow-xs'
-                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  ? 'bg-[#0B2545] text-white shadow-xs'
+                  : 'bg-sky-50 text-[#0B2545] hover:bg-sky-100 border border-sky-200'
               }`}
             >
               {st}
@@ -181,7 +182,7 @@ export default function MyProjects({ onSelectProject }) {
             return (
               <div
                 key={p.projectId}
-                className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-sky-300 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between relative group"
+                className="p-5 rounded-2xl bg-white border border-sky-100 hover:border-sky-400 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between relative group"
               >
                 <div>
                   {/* Category, Status & Menu */}
@@ -270,10 +271,10 @@ export default function MyProjects({ onSelectProject }) {
 
                   <button
                     onClick={() => onSelectProject(p)}
-                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center space-x-1 shadow-2xs"
+                    className="px-3.5 py-1.5 rounded-xl bg-[#0B2545] hover:bg-[#13315C] text-white text-xs font-bold transition flex items-center space-x-1 shadow-2xs"
                   >
                     <span>Open Project</span>
-                    <ArrowRight className="w-3 h-3" />
+                    <ArrowRight className="w-3 h-3 text-sky-300" />
                   </button>
                 </div>
               </div>

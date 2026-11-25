@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { api, getMockDb } from '../services/api';
 
-export default function ActivityLogs({ currentUser }) {
+export default function ActivityLogs({ currentUser, globalSearch = '' }) {
   const [activities, setActivities] = useState([]);
   const [search, setSearch] = useState('');
   const [userFilter, setUserFilter] = useState('All');
@@ -69,10 +69,12 @@ export default function ActivityLogs({ currentUser }) {
 
   const allUsers = Array.from(new Set(activities.map(a => a.actor).filter(Boolean)));
 
+  const effectiveSearch = (search || globalSearch || '').toLowerCase();
   const filteredLogs = activities.filter((act) => {
-    const matchesSearch = act.details?.toLowerCase().includes(search.toLowerCase()) || 
-                          act.projectName?.toLowerCase().includes(search.toLowerCase()) ||
-                          act.fileName?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = !effectiveSearch ||
+                          act.details?.toLowerCase().includes(effectiveSearch) || 
+                          act.projectName?.toLowerCase().includes(effectiveSearch) ||
+                          act.fileName?.toLowerCase().includes(effectiveSearch);
     const matchesUser = userFilter === 'All' ? true : act.actor === userFilter;
     const matchesType = typeFilter === 'All' ? true : act.action === typeFilter;
     
@@ -111,9 +113,9 @@ export default function ActivityLogs({ currentUser }) {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
+        <h1 className="text-2xl font-black text-[#0B2545] tracking-tight flex items-center space-x-2">
           <span>Activity Logs</span>
-          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-[#0B2545] border border-sky-200">
             {filteredLogs.length} Events
           </span>
         </h1>

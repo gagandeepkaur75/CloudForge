@@ -35,7 +35,7 @@ import ShareModal from '../components/ShareModal';
 import VersionModal from '../components/VersionModal';
 import SnapshotModal from '../components/SnapshotModal';
 
-export default function ProjectWorkspace({ project, currentUser, onBack }) {
+export default function ProjectWorkspace({ project, currentUser, globalSearch = '', onBack }) {
   const [projectData, setProjectData] = useState(project);
   const [folders, setFolders] = useState([]);
   const [currentFolder, setCurrentFolder] = useState('All'); // 'All' or specific folder name
@@ -158,9 +158,10 @@ export default function ProjectWorkspace({ project, currentUser, onBack }) {
   };
 
   // Filter files by folder and search query
+  const effectiveSearch = (fileSearch || globalSearch || '').toLowerCase();
   const filteredFiles = files.filter((f) => {
     const matchesFolder = currentFolder === 'All' ? true : f.folder === currentFolder;
-    const matchesSearch = f.fileName.toLowerCase().includes(fileSearch.toLowerCase());
+    const matchesSearch = !effectiveSearch || f.fileName.toLowerCase().includes(effectiveSearch);
     return matchesFolder && matchesSearch;
   });
 
@@ -215,12 +216,12 @@ export default function ProjectWorkspace({ project, currentUser, onBack }) {
           <span className="text-sky-600 font-bold">{currentFolder === 'All' ? 'All Files' : currentFolder}</span>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl bg-white border border-slate-200 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl bg-white border border-sky-100 shadow-xs">
           <div>
             <div className="flex items-center space-x-3">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">{projectData.title}</h1>
+              <h1 className="text-2xl font-black text-[#0B2545] tracking-tight">{projectData.title}</h1>
               <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                projectData.snapshotStatus === 'SUBMITTED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-sky-50 text-sky-700 border-sky-200'
+                projectData.snapshotStatus === 'SUBMITTED' ? 'bg-[#0B2545] text-sky-300 border-[#0B2545]' : 'bg-sky-50 text-[#0B2545] border-sky-200'
               }`}>
                 {projectData.snapshotStatus === 'SUBMITTED' ? 'SUBMISSION SEALED' : 'ACTIVE DEVELOPMENT'}
               </span>
@@ -231,9 +232,9 @@ export default function ProjectWorkspace({ project, currentUser, onBack }) {
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowSnapshotModal(true)}
-              className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 transition"
+              className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-[#0B2545] hover:bg-[#13315C] text-white text-xs font-bold shadow-sm transition"
             >
-              <Archive className="w-3.5 h-3.5 text-emerald-600" />
+              <Archive className="w-3.5 h-3.5 text-sky-300" />
               <span>{projectData.snapshotStatus === 'SUBMITTED' ? 'View Snapshot' : 'Create Final Snapshot'}</span>
             </button>
           </div>
