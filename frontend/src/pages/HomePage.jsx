@@ -407,9 +407,6 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
             <p className="mt-2 text-sm text-slate-500">
               Department of Computer Science and Engineering • Thapar Institute of Engineering and Technology
             </p>
-            <p className="text-xs font-semibold text-blue-700 mt-1">
-              Lab: L208 (Monday 3:30 PM) • Faculty Advisor: Dr. Anil Singh
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">

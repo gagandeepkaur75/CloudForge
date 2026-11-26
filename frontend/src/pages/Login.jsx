@@ -377,7 +377,6 @@ export default function Login({ onLoginSuccess, onGoHome }) {
         {/* Thapar University & UCS531 Footer Notice */}
         <div className="mt-6 text-center text-xs text-slate-500 space-y-1">
           <p className="font-semibold text-slate-600">Thapar Institute of Engineering and Technology</p>
-          <p>Lab L208 (Monday 3:30 PM) • Faculty Advisor: Dr. Anil Singh</p>
         </div>
       </div>
 
