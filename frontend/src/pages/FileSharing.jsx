@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Share2,
-  Search,
-  Copy,
-  Check,
-  Ban,
-  X
+import { 
+  Share2, 
+  Search, 
+  Plus, 
+  Copy, 
+  Check, 
+  Clock, 
+  ShieldCheck, 
+  AlertCircle, 
+  ExternalLink, 
+  X,
+  FileText,
+  Ban
 } from 'lucide-react';
 import { api, getMockDb } from '../services/api';
 
-export default function FileSharing({ currentUser, globalSearch = '' }) {
+export default function FileSharing({ currentUser }) {
   const [sharedLinks, setSharedLinks] = useState([]);
   const [projects, setProjects] = useState([]);
   const [filesMap, setFilesMap] = useState({});
@@ -51,7 +57,11 @@ export default function FileSharing({ currentUser, globalSearch = '' }) {
   const handleProjectSelect = (pid) => {
     setSelectedProjectId(pid);
     const projFiles = filesMap[pid] || [];
-    setSelectedFileName(projFiles.length > 0 ? projFiles[0].fileName : '');
+    if (projFiles.length > 0) {
+      setSelectedFileName(projFiles[0].fileName);
+    } else {
+      setSelectedFileName('');
+    }
   };
 
   const handleGenerateLink = async (e) => {
@@ -59,7 +69,7 @@ export default function FileSharing({ currentUser, globalSearch = '' }) {
     if (!selectedProjectId || !selectedFileName) return;
     setGenerating(true);
     try {
-      const proj = projects.find((p) => p.projectId === selectedProjectId);
+      const proj = projects.find(p => p.projectId === selectedProjectId);
       const res = await api.createShareLink({
         projectId: selectedProjectId,
         projectName: proj ? proj.title : 'Project',
@@ -76,7 +86,7 @@ export default function FileSharing({ currentUser, globalSearch = '' }) {
   };
 
   const handleRevoke = async (linkId) => {
-    if (!window.confirm('Revoke this share link?')) return;
+    if (!window.confirm('Revoke this share link immediately? The temporary token will expire.')) return;
     await api.revokeShareLink(linkId);
     const updated = await api.getSharedLinks();
     setSharedLinks(updated.data.sharedLinks || []);
@@ -91,137 +101,166 @@ export default function FileSharing({ currentUser, globalSearch = '' }) {
   const formatDate = (iso) => {
     if (!iso) return '-';
     try {
-      return new Date(iso).toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+      return new Date(iso).toLocaleString(undefined, { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
       });
     } catch {
       return iso;
     }
   };
 
-  const effectiveSearch = (search || globalSearch || '').toLowerCase();
-  const filteredLinks = sharedLinks.filter(
-    (l) =>
-      !effectiveSearch ||
-      l.fileName?.toLowerCase().includes(effectiveSearch) ||
-      l.projectName?.toLowerCase().includes(effectiveSearch) ||
-      l.sharedBy?.toLowerCase().includes(effectiveSearch)
+  const filteredLinks = sharedLinks.filter(l => 
+    l.fileName?.toLowerCase().includes(search.toLowerCase()) ||
+    l.projectName?.toLowerCase().includes(search.toLowerCase()) ||
+    l.sharedBy?.toLowerCase().includes(search.toLowerCase())
   );
 
   const availableFiles = filesMap[selectedProjectId] || [];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Top Section */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#0B2545] tracking-tight">File Sharing</h1>
-          <p className="text-sm text-slate-500 mt-1">Share your project files securely.</p>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
+            <span>Secure File Sharing</span>
+            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+              {filteredLinks.length} Active & Past Links
+            </span>
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Generate and manage time-limited Amazon S3 Pre-Signed download URLs without exposing permanent credentials.
+          </p>
         </div>
 
         <button
-          type="button"
-          onClick={() => {
-            setNewlyGenerated(null);
-            setShowModal(true);
-          }}
-          className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-[#0B2545] hover:bg-[#13315C] text-white text-sm font-medium transition self-start sm:self-auto"
+          onClick={() => { setNewlyGenerated(null); setShowModal(true); }}
+          className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition self-start sm:self-auto"
         >
           <Share2 className="w-4 h-4" />
-          <span>Create Share Link</span>
+          <span>Generate Share Link</span>
         </button>
       </div>
 
+      {/* Info Card */}
+      <div className="bg-sky-50/60 border border-sky-200 rounded-2xl p-4 text-xs text-sky-900 flex items-start space-x-3">
+        <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+        <p className="leading-relaxed">
+          CloudForge uses Amazon S3 pre-signed URLs embedding cryptographic HMAC-SHA256 signatures and expiration timestamps. Links automatically invalidate after their expiry window, preventing unauthorized persistent access.
+        </p>
+      </div>
+
       {/* Search Bar */}
-      <div className="relative w-full sm:w-72">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search shared files..."
-          className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-9 pr-3 text-sm text-[#0B2545] placeholder-slate-400 focus:outline-none focus:border-sky-500"
-        />
+      <div className="flex items-center justify-between bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search shared files or projects..."
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-1.5 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-sky-500"
+          />
+        </div>
       </div>
 
       {/* Shared Links Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs font-semibold text-slate-500 border-b border-slate-200">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <table className="w-full text-left text-sm text-slate-700">
+          <thead className="bg-slate-50 text-xs uppercase font-bold text-slate-500 border-b border-slate-200">
             <tr>
-              <th className="px-5 py-3">File Name</th>
-              <th className="px-5 py-3">Shared With / Link</th>
-              <th className="px-5 py-3">Expiry Date</th>
-              <th className="px-5 py-3">Status</th>
-              <th className="px-5 py-3 text-right">Actions</th>
+              <th scope="col" className="px-5 py-3.5">File & Project</th>
+              <th scope="col" className="px-5 py-3.5">Shared By</th>
+              <th scope="col" className="px-5 py-3.5">Permission</th>
+              <th scope="col" className="px-5 py-3.5">Created Date</th>
+              <th scope="col" className="px-5 py-3.5">Expiration Date</th>
+              <th scope="col" className="px-5 py-3.5">Status</th>
+              <th scope="col" className="px-5 py-3.5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredLinks.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-xs text-slate-500">
-                  No shared links yet.
+                <td colSpan={7} className="px-5 py-12 text-center text-xs text-slate-400">
+                  No share links generated yet. Click 'Generate Share Link' to create one.
                 </td>
               </tr>
             ) : (
               filteredLinks.map((link) => {
-                const isExpired =
-                  link.status === 'Expired' ||
-                  link.status === 'Revoked' ||
-                  new Date(link.expiresAt) < new Date();
-                const statusLabel = link.status === 'Revoked' ? 'Revoked' : isExpired ? 'Expired' : 'Active';
+                const isExpired = new Date(link.expirationDate) < new Date() || link.status === 'Expired' || link.status === 'Revoked';
+                const statusColor = link.status === 'Revoked' ? 'bg-slate-100 text-slate-600 border-slate-200' :
+                                    isExpired ? 'bg-red-50 text-red-700 border-red-200' : 
+                                    'bg-emerald-50 text-emerald-700 border-emerald-200';
+                const statusText = link.status === 'Revoked' ? 'Revoked' : isExpired ? 'Expired' : 'Active';
 
                 return (
-                  <tr key={link.id} className="hover:bg-slate-50/70 transition">
-                    <td className="px-5 py-3.5">
-                      <p className="font-medium text-[#0B2545]">{link.fileName}</p>
-                      <p className="text-xs text-slate-400">{link.projectName}</p>
+                  <tr key={link.linkId} className="hover:bg-sky-50/20 transition">
+                    {/* File & Project */}
+                    <td className="px-5 py-4 font-medium text-slate-900">
+                      <div className="flex items-center space-x-2.5">
+                        <FileText className="w-4 h-4 text-sky-600 shrink-0" />
+                        <div>
+                          <span className="font-mono text-xs font-bold text-slate-900 block">{link.fileName}</span>
+                          <span className="text-[11px] text-slate-400">{link.projectName}</span>
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-slate-600">
-                      <p className="font-medium text-[#0B2545]">{link.permission}</p>
-                      <p className="text-slate-400 truncate max-w-[200px] font-mono text-[11px]">{link.url}</p>
+
+                    {/* Shared By */}
+                    <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-600 font-mono">
+                      {link.sharedBy?.split('@')[0]}
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-slate-600">
-                      {formatDate(link.expiresAt)}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span
-                        className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                          statusLabel === 'Active'
-                            ? 'bg-sky-50 text-sky-700'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {statusLabel}
+
+                    {/* Permission */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                        {link.permission}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-right space-x-1 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(link.url, link.id)}
-                        disabled={statusLabel !== 'Active'}
-                        className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-medium text-[#0B2545] hover:bg-slate-50 disabled:opacity-40"
-                      >
-                        {copiedId === link.id ? (
-                          <Check className="w-3.5 h-3.5 text-sky-600" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5 text-slate-400" />
+
+                    {/* Created Date */}
+                    <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-400 font-mono">
+                      {formatDate(link.createdDate)}
+                    </td>
+
+                    {/* Expiration Date */}
+                    <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-500 font-mono">
+                      {formatDate(link.expirationDate)}
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusColor}`}>
+                        <span>{statusText}</span>
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-5 py-4 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end space-x-2">
+                        {!isExpired && (
+                          <button
+                            onClick={() => copyToClipboard(link.shareUrl, link.linkId)}
+                            title="Copy Pre-Signed Share URL"
+                            className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold border border-sky-200 flex items-center space-x-1"
+                          >
+                            {copiedId === link.linkId ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            <span>{copiedId === link.linkId ? 'Copied' : 'Copy Link'}</span>
+                          </button>
                         )}
-                        <span>{copiedId === link.id ? 'Copied' : 'Copy Link'}</span>
-                      </button>
-                      {statusLabel === 'Active' && (
-                        <button
-                          type="button"
-                          onClick={() => handleRevoke(link.id)}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-medium text-red-600 hover:bg-red-50"
-                        >
-                          <Ban className="w-3.5 h-3.5" />
-                          <span>Revoke</span>
-                        </button>
-                      )}
+                        {statusText === 'Active' && (
+                          <button
+                            onClick={() => handleRevoke(link.linkId)}
+                            title="Revoke Link"
+                            className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Ban className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -233,100 +272,74 @@ export default function FileSharing({ currentUser, globalSearch = '' }) {
 
       {/* Create Share Link Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-[#0B2545]">Create Share Link</h3>
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 rounded-xl bg-sky-100 text-sky-700">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">Generate Time-Limited Share Link</h3>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {newlyGenerated ? (
-              <div className="space-y-4">
-                <p className="text-xs text-slate-600">Temporary share link generated:</p>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={newlyGenerated.url}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-[#0B2545] font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(newlyGenerated.url, 'new')}
-                    className="px-3 py-2 rounded-lg bg-[#0B2545] text-white text-xs font-medium"
-                  >
-                    {copiedId === 'new' ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600"
-                  >
-                    Done
-                  </button>
-                </div>
-              </div>
-            ) : (
+            {!newlyGenerated ? (
               <form onSubmit={handleGenerateLink} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Select Project</label>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">Select Project</label>
                   <select
                     value={selectedProjectId}
                     onChange={(e) => handleProjectSelect(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#0B2545] focus:outline-none focus:border-sky-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-900 font-bold focus:outline-none focus:border-sky-500"
                   >
                     {projects.map((p) => (
-                      <option key={p.projectId} value={p.projectId}>
-                        {p.title}
-                      </option>
+                      <option key={p.projectId} value={p.projectId}>{p.title}</option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Select File</label>
-                  <select
-                    value={selectedFileName}
-                    onChange={(e) => setSelectedFileName(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#0B2545] focus:outline-none focus:border-sky-500"
-                  >
-                    {availableFiles.map((f) => (
-                      <option key={f.fileName} value={f.fileName}>
-                        {f.fileName}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">Select File</label>
+                  {availableFiles.length === 0 ? (
+                    <p className="text-xs text-red-500">No files found in this project to share.</p>
+                  ) : (
+                    <select
+                      value={selectedFileName}
+                      onChange={(e) => setSelectedFileName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-900 font-mono focus:outline-none focus:border-sky-500"
+                    >
+                      {availableFiles.map((f) => (
+                        <option key={f.fileId} value={f.fileName}>{f.fileName} ({f.folder})</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Access Permission</label>
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1">Access Permission</label>
                     <select
                       value={permission}
                       onChange={(e) => setPermission(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#0B2545] focus:outline-none focus:border-sky-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-sky-500"
                     >
-                      <option value="View Only">View Only</option>
-                      <option value="Download Access">Download Access</option>
+                      <option>Download Access</option>
+                      <option>View Only</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Expiry Date</label>
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1">Link Expiration</label>
                     <select
                       value={expiryHours}
                       onChange={(e) => setExpiryHours(Number(e.target.value))}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#0B2545] focus:outline-none focus:border-sky-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-sky-500"
                     >
                       <option value={1}>1 Hour</option>
+                      <option value={12}>12 Hours</option>
                       <option value={24}>24 Hours</option>
                       <option value={168}>7 Days</option>
                     </select>
@@ -337,19 +350,51 @@ export default function FileSharing({ currentUser, globalSearch = '' }) {
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={generating || !selectedFileName}
-                    className="px-4 py-2 rounded-lg bg-[#0B2545] hover:bg-[#13315C] text-white text-xs font-medium disabled:opacity-50"
+                    disabled={generating || availableFiles.length === 0}
+                    className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs disabled:opacity-50"
                   >
-                    {generating ? 'Generating...' : 'Generate Link'}
+                    {generating ? 'Signing URL...' : 'Generate Pre-Signed Link'}
                   </button>
                 </div>
               </form>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Pre-signed S3 download URL created! Valid for {expiryHours} hours.</span>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    readOnly
+                    value={newlyGenerated.shareUrl}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-3 pr-20 text-xs font-mono text-slate-900 select-all"
+                  />
+                  <button
+                    onClick={() => copyToClipboard(newlyGenerated.shareUrl, 'new')}
+                    className="absolute right-1 top-1 bottom-1 px-3 bg-blue-600 text-white text-xs font-bold rounded-lg flex items-center space-x-1"
+                  >
+                    {copiedId === 'new' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedId === 'new' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>

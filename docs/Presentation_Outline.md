@@ -1,6 +1,7 @@
 # CloudForge: 10-Slide Academic Presentation & Live Demonstration Script
 **Course:** Cloud Computing (UCS531)  
 **Academic Institution:** Thapar Institute of Engineering and Technology  
+**Lab Session:** L208 (Monday 3:30 PM)  
 **Faculty Advisor:** Dr. Anil Singh  
 
 **Student Presenters:**
@@ -15,7 +16,7 @@
 ### Slide 1: Title & Project Identification
 * **Title:** CloudForge — Advanced Cloud-Based Collaborative Project Workspace
 * **Subtitle:** An Event-Driven, Serverless AWS Cloud Infrastructure for Student Engineering Teams
-* **Course:** Cloud Computing (UCS531)
+* **Course:** Cloud Computing (UCS531) | Lab: L208 (Monday 3:30 PM)
 * **Team Members:** Gagandeep Kaur, Puneet Singh, Aditya Gupta
 * **Faculty Advisor:** Dr. Anil Singh
 
@@ -118,7 +119,7 @@
 
 ## Part 2: Step-by-Step Live Demonstration Script
 
-### Demo Checklist & Sequence for Academic Evaluation:
+### Demo Checklist & Sequence for Lab L208 Evaluation:
 
 ```text
 [ Step 1: Authentication & Role-Based Access ]

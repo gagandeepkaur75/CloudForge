@@ -11,6 +11,7 @@
 ## 1. Project Overview & Academic Identification
 * **Course:** Cloud Computing (UCS531)
 * **Academic Institution:** Thapar Institute of Engineering and Technology, Patiala
+* **Lab:** L208 (Monday 3:30 PM)
 * **Faculty Advisor:** Dr. Anil Singh
 
 ### Development Team
@@ -279,7 +280,7 @@ Open `http://localhost:3000` in your browser.
 
 ## 7. Academic Evaluation & Demonstration Guide
 
-To demonstrate CloudForge for academic evaluation:
+To demonstrate CloudForge in the UCS531 Lab (L208):
 1. **One-Click Sign In:** Click on **Gagandeep Kaur (ProjectLead)** or **Puneet Singh (Contributor)** to demonstrate Cognito authentication and role-based badges.
 2. **File Upload via S3 Pre-Signed URL:** Drag and drop code or a dataset; observe the upload progress bar and live S3 versioning registration.
 3. **Multi-Versioning & Atomic Recovery:** Upload a modified version of the same file to show `v1` and `v2`. Open the **Version History Modal** and click **"Recover Version"** to watch `s3:CopyObject` restore historical content without deleting history.

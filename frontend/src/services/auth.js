@@ -39,7 +39,7 @@ export const authService = {
   isMockMode() {
     const stored = localStorage.getItem(MOCK_FLAG_KEY);
     if (stored !== null) return stored === 'true';
-    const envVal = import.meta.env?.VITE_USE_MOCK || process.env?.REACT_APP_USE_MOCK;
+    const envVal = import.meta.env?.VITE_USE_MOCK;
     return envVal === 'true' || !this.getApiUrl();
   },
 
@@ -48,15 +48,15 @@ export const authService = {
   },
 
   getApiUrl() {
-    return import.meta.env?.VITE_API_URL || process.env?.REACT_APP_API_URL || '';
+    return import.meta.env?.VITE_API_URL || '';
   },
 
   getUserPoolId() {
-    return import.meta.env?.VITE_USER_POOL_ID || process.env?.REACT_APP_USER_POOL_ID || '';
+    return import.meta.env?.VITE_USER_POOL_ID || '';
   },
 
   getClientId() {
-    return import.meta.env?.VITE_CLIENT_ID || process.env?.REACT_APP_CLIENT_ID || '';
+    return import.meta.env?.VITE_CLIENT_ID || '';
   },
 
   getCurrentUser() {

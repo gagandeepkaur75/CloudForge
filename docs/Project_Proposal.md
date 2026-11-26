@@ -2,6 +2,7 @@
 ## Advanced Cloud-Based Collaborative Project Workspace
 **Course:** Cloud Computing (UCS531)  
 **Academic Institution:** Thapar Institute of Engineering and Technology  
+**Lab:** L208 (Monday 3:30 PM)  
 **Faculty Advisor:** Dr. Anil Singh  
 
 ---
