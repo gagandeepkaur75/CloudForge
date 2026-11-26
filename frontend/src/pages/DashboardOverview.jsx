@@ -20,7 +20,8 @@ import {
   FileCode2,
   Activity
 } from 'lucide-react';
-import { api, getMockDb } from '../services/api';
+import { api } from '../services/api';
+import { authService } from '../services/auth';
 import CreateProjectModal from '../components/CreateProjectModal';
 
 export default function DashboardOverview({ 
@@ -36,6 +37,8 @@ export default function DashboardOverview({
   const [filesMap, setFilesMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [dashboardAvailable, setDashboardAvailable] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     loadDashboardData();
@@ -43,16 +46,50 @@ export default function DashboardOverview({
 
   const loadDashboardData = async () => {
     setLoading(true);
+    setDashboardAvailable(false);
+    setLoadError('');
+    setProjects([]);
+    setFilesMap({});
+    setActivities([]);
+
+    if (authService.isMockMode()) {
+      setLoadError('Demo mode is active. Sample workspace data is hidden; connect the real backend to view projects and files.');
+      setLoading(false);
+      return;
+    }
+
+    if (!authService.getApiUrl()) {
+      setLoadError('The CloudForge backend is not configured. Set VITE_API_URL to the deployed API Gateway URL to load real workspace data.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await api.getProjects();
       const projList = res.data.projects || [];
-      setProjects(projList);
+      const projectData = await Promise.all(projList.map(async (project) => {
+        const [filesResponse, activityResponse] = await Promise.all([
+          api.getFiles(project.projectId),
+          api.getActivityLogs(project.projectId)
+        ]);
+        return {
+          projectId: project.projectId,
+          files: filesResponse.data.files || [],
+          activities: (activityResponse.data.activities || []).map((activity) => ({
+            ...activity,
+            projectId: project.projectId,
+            projectName: project.title
+          }))
+        };
+      }));
 
-      const db = getMockDb();
-      setFilesMap(db.files || {});
-      setActivities(db.activities || []);
+      setProjects(projList);
+      setFilesMap(Object.fromEntries(projectData.map(({ projectId, files }) => [projectId, files])));
+      setActivities(projectData.flatMap(({ activities }) => activities));
+      setDashboardAvailable(true);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
+      setLoadError(err.response?.data?.detail || err.message || 'Failed to load workspace data from the backend.');
     } finally {
       setLoading(false);
     }
@@ -65,17 +102,15 @@ export default function DashboardOverview({
 
   // Calculations for summary cards
   const totalProjects = projects.length;
-  let totalFiles = 0;
-  Object.values(filesMap).forEach(list => { totalFiles += list.length; });
-
-  const totalStorageBytes = projects.reduce((acc, p) => acc + (p.totalStorageBytes || 0), 0);
+  const allFiles = Object.entries(filesMap).flatMap(([projectId, files]) =>
+    files.map((file) => ({ ...file, projectId }))
+  );
+  const totalFiles = allFiles.length;
+  const totalStorageBytes = allFiles.reduce((total, file) => total + (file.sizeBytes || 0), 0);
   const allContributors = new Set();
   projects.forEach(p => {
     if (p.members) p.members.forEach(m => allContributors.add(typeof m === 'string' ? m : m.email));
   });
-
-  const maxStorageBytes = 100 * 1024 * 1024; // 100 MB quota
-  const storagePercentage = Math.min(100, Math.round((totalStorageBytes / maxStorageBytes) * 100));
 
   const formatBytes = (bytes) => {
     if (!bytes || bytes === 0) return '0 MB';
@@ -118,7 +153,7 @@ export default function DashboardOverview({
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {dashboardAvailable && <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex min-h-10 items-center justify-center space-x-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-2.5 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-700 sm:px-3.5"
@@ -150,9 +185,23 @@ export default function DashboardOverview({
             <Archive className="w-3.5 h-3.5 text-emerald-600" />
             <span>Create Snapshot</span>
           </button>
-        </div>
+        </div>}
       </div>
 
+      {loading ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500" role="status">
+          Loading workspace data…
+        </div>
+      ) : !dashboardAvailable ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8" role="status">
+          <h2 className="text-lg font-bold text-slate-900">Workspace data unavailable</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-700">{loadError}</p>
+          <p className="mt-2 text-xs leading-5 text-slate-600">
+            No sample project or file counts are shown. Once the authenticated backend is configured, this dashboard will load project and file metadata from it.
+          </p>
+        </div>
+      ) : (
+      <>
       {/* 2. Four Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Projects */}
@@ -187,40 +236,21 @@ export default function DashboardOverview({
               <Users className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-3xl font-black text-slate-900 mt-2 font-mono">{allContributors.size || 3}</p>
+          <p className="text-3xl font-black text-slate-900 mt-2 font-mono">{allContributors.size}</p>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">Student collaborators</p>
         </div>
 
         {/* Card 4: Storage Used */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-sky-300 transition">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Storage Used</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Listed File Size</span>
             <div className="p-2.5 rounded-xl bg-cyan-50 text-cyan-600 border border-cyan-100">
               <HardDrive className="w-5 h-5" />
             </div>
           </div>
           <p className="text-3xl font-black text-sky-600 mt-2 font-mono">{formatBytes(totalStorageBytes)}</p>
-          <p className="text-[11px] text-slate-500 mt-1 font-medium">S3 Versioned storage</p>
-        </div>
-      </div>
-
-      {/* Storage Usage Progress Bar Banner */}
-      <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-slate-800">Storage Usage Allocation</span>
-            <span className="text-[11px] font-mono font-bold text-sky-600">{storagePercentage}% Used</span>
+            <p className="text-[11px] text-slate-500 mt-1 font-medium">Across listed files</p>
           </div>
-          <p className="text-xs text-slate-500">
-            {formatBytes(totalStorageBytes)} used of 100 MB free university tier on Amazon S3.
-          </p>
-        </div>
-        <div className="w-full sm:w-64 bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
-          <div 
-            className="bg-gradient-to-r from-sky-400 to-blue-600 h-3 rounded-full transition-all duration-300"
-            style={{ width: `${storagePercentage}%` }}
-          ></div>
-        </div>
       </div>
 
       {/* 3. Main Split: Recent Projects (Left) + Recent Activities (Right) */}
@@ -243,7 +273,11 @@ export default function DashboardOverview({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {projects.length === 0 ? (
+            <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
+              No projects are available for this account.
+            </p>
+          ) : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {projects.slice(0, 4).map((p) => {
               const fileCount = (filesMap[p.projectId] || []).length;
               const memberCount = p.members?.length || 1;
@@ -296,7 +330,36 @@ export default function DashboardOverview({
                 </div>
               );
             })}
-          </div>
+          </div>}
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Recent Files</h2>
+            {allFiles.length === 0 ? (
+              <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
+                No files are listed in your accessible projects.
+              </p>
+            ) : (
+              <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
+                {allFiles
+                  .map((file) => ({
+                    ...file,
+                    projectName: projects.find((project) => project.projectId === file.projectId)?.title
+                      || projects.find((project) => (filesMap[project.projectId] || []).includes(file))?.title
+                      || 'Project'
+                  }))
+                  .slice(0, 5)
+                  .map((file, index) => (
+                    <div key={file.fileId || `${file.projectName}-${file.fileName}-${index}`} className="flex items-center justify-between gap-3 p-4">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-800">{file.fileName}</p>
+                        <p className="mt-1 truncate text-xs text-slate-500">{file.projectName}{file.folder ? ` · ${file.folder}` : ''}</p>
+                      </div>
+                      <span className="shrink-0 text-xs text-slate-500">{formatBytes(file.sizeBytes || 0)}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </section>
         </div>
 
         {/* Recent Activities Section */}
@@ -334,6 +397,8 @@ export default function DashboardOverview({
         onClose={() => setShowCreateModal(false)}
         onCreate={handleCreateProject}
       />
+      </>
+      )}
     </div>
   );
 }
