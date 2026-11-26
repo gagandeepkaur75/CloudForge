@@ -1,25 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Archive, 
-  ShieldCheck, 
   Download, 
-  RotateCcw, 
-  Plus, 
   CheckCircle2, 
-  HardDrive, 
-  Clock, 
-  Calendar, 
   FileArchive, 
   Lock, 
   X,
-  AlertTriangle,
-  RefreshCw
+  AlertTriangle
 } from 'lucide-react';
-import { api, getMockDb } from '../services/api';
+import { api } from '../services/api';
 
 export default function SubmissionBackup({ currentUser }) {
   const [snapshots, setSnapshots] = useState([]);
-  const [backupInfo, setBackupInfo] = useState(null);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alertMsg, setAlertMsg] = useState(null);
@@ -29,7 +21,6 @@ export default function SubmissionBackup({ currentUser }) {
   const [snapshotName, setSnapshotName] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [description, setDescription] = useState('');
-  const [includeAll, setIncludeAll] = useState(true);
   const [creating, setCreating] = useState(false);
 
   // View snapshot detail
@@ -45,15 +36,14 @@ export default function SubmissionBackup({ currentUser }) {
       const snapRes = await api.getSnapshots();
       setSnapshots(snapRes.data.snapshots || []);
 
-      const bRes = await api.getBackupInfo();
-      setBackupInfo(bRes.data);
-
       const pRes = await api.getProjects();
       const pList = pRes.data.projects || [];
       setProjects(pList);
       if (pList.length > 0) {
         setSelectedProjectId(pList[0].projectId);
       }
+    } catch (error) {
+      setAlertMsg({ type: 'error', text: error.message || 'Failed to load submission data.' });
     } finally {
       setLoading(false);
     }
@@ -68,50 +58,29 @@ export default function SubmissionBackup({ currentUser }) {
       const res = await api.createSnapshot({
         snapshotName,
         projectId: selectedProjectId,
-        description,
-        includeAll
+        description
       });
       setAlertMsg({
         type: 'success',
-        text: `Snapshot '${snapshotName}' sealed into immutable S3 /snapshots/ prefix! Archive ready.`
+        text: res.data.message || `Snapshot '${snapshotName}' created in Amazon S3.`
       });
+      if (res.data.snapshot) setSnapshots((existing) => [res.data.snapshot, ...existing]);
       setShowModal(false);
       setSnapshotName('');
       setDescription('');
-      await loadData();
     } catch (err) {
-      setAlertMsg({ type: 'error', text: 'Failed to create academic snapshot.' });
+      setAlertMsg({ type: 'error', text: err.message || 'Failed to create academic snapshot.' });
     } finally {
       setCreating(false);
     }
   };
 
   const handleDownloadSnapshot = (snap) => {
-    alert(`Downloading ${snap.zipKey || 'submission.zip'} generated on Amazon S3.`);
     if (snap.downloadUrl) {
       window.open(snap.downloadUrl, '_blank');
+    } else {
+      setAlertMsg({ type: 'error', text: 'A download URL is not available for this snapshot.' });
     }
-  };
-
-  const handleRestoreSnapshot = async (snap) => {
-    if (!window.confirm(`Restore project files from snapshot '${snap.snapshotName}'? This will restore files into a new timestamped recovery directory without overwriting existing data.`)) {
-      return;
-    }
-    setAlertMsg({
-      type: 'success',
-      text: `Project files from '${snap.snapshotName}' restored successfully into safe workspace recovery folder.`
-    });
-  };
-
-  const handleRestoreBackup = async (rec) => {
-    if (!window.confirm(`Restore entire system state from AWS Backup vault record dated ${new Date(rec.date).toLocaleDateString()}?`)) {
-      return;
-    }
-    await api.restoreBackup(rec.id);
-    setAlertMsg({
-      type: 'success',
-      text: `AWS Backup Vault successfully restored recovery point ${rec.id}.`
-    });
   };
 
   const formatDate = (iso) => {
@@ -137,11 +106,11 @@ export default function SubmissionBackup({ currentUser }) {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
             <span>Project Submission & Disaster Backup</span>
             <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Immutable Archives
+              S3 Snapshots
             </span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Bundle final project releases into sealed S3 snapshots and manage automated AWS Backup vault plans.
+            Create point-in-time S3 archives of project files. AWS Backup vault management is not configured.
           </p>
         </div>
 
@@ -233,8 +202,8 @@ export default function SubmissionBackup({ currentUser }) {
                     {/* Status */}
                     <td className="px-5 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <Lock className="w-3 h-3 text-emerald-600" />
-                        <span>Sealed / Submitted</span>
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>{snap.status || 'Created'}</span>
                       </span>
                     </td>
 
@@ -256,14 +225,6 @@ export default function SubmissionBackup({ currentUser }) {
                           <Download className="w-3 h-3" />
                           <span>.ZIP</span>
                         </button>
-                        <button
-                          onClick={() => handleRestoreSnapshot(snap)}
-                          title="Restore Snapshot to Workspace"
-                          className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200 flex items-center space-x-1"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          <span>Restore</span>
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -274,89 +235,8 @@ export default function SubmissionBackup({ currentUser }) {
         </div>
       </div>
 
-      {/* Backup Section */}
-      <div className="space-y-4 pt-4 border-t border-slate-200">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center space-x-2">
-            <span>AWS Backup Vault & Disaster Recovery</span>
-            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-              Daily Automated
-            </span>
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Centralized backup vault safeguarding Amazon DynamoDB tables and Amazon S3 buckets.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vault Status</span>
-            <div className="flex items-center space-x-2 mt-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <p className="text-sm font-bold text-slate-900">{backupInfo?.status || 'Healthy'}</p>
-            </div>
-            <p className="text-[11px] text-slate-400 font-mono mt-1">Target: {backupInfo?.vaultName || 'CloudForgeBackupVault'}</p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Last Recovery Point</span>
-            <p className="text-sm font-bold text-slate-900 mt-2 font-mono">{formatDate(backupInfo?.lastBackupDate)}</p>
-            <p className="text-[11px] text-slate-400 mt-1">Auto-executed via AWS cron policy</p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Protected Resources</span>
-            <p className="text-sm font-bold text-slate-900 mt-2">3 DynamoDB Tables + S3</p>
-            <p className="text-[11px] text-slate-400 mt-1">30 days retention policy</p>
-          </div>
-        </div>
-
-        {/* Available Backup Records Table */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
-          <table className="w-full text-left text-sm text-slate-700">
-            <thead className="bg-slate-50 text-xs uppercase font-bold text-slate-500 border-b border-slate-200">
-              <tr>
-                <th scope="col" className="px-5 py-3.5">Recovery Point ID</th>
-                <th scope="col" className="px-5 py-3.5">Backup Date</th>
-                <th scope="col" className="px-5 py-3.5">Archive Size</th>
-                <th scope="col" className="px-5 py-3.5">Type</th>
-                <th scope="col" className="px-5 py-3.5">Status</th>
-                <th scope="col" className="px-5 py-3.5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {(backupInfo?.availableRecords || []).map((rec) => (
-                <tr key={rec.id} className="hover:bg-slate-50/70 transition">
-                  <td className="px-5 py-3.5 font-mono text-xs font-bold text-slate-800">
-                    {rec.id}
-                  </td>
-                  <td className="px-5 py-3.5 text-xs text-slate-500 font-mono">
-                    {formatDate(rec.date)}
-                  </td>
-                  <td className="px-5 py-3.5 font-mono text-xs text-slate-600">
-                    {rec.size}
-                  </td>
-                  <td className="px-5 py-3.5 text-xs text-slate-700 font-medium">
-                    {rec.type}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                      {rec.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <button
-                      onClick={() => handleRestoreBackup(rec)}
-                      className="px-3 py-1 rounded-xl bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 text-xs font-bold border border-blue-200 transition"
-                    >
-                      Restore Backup
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900" role="status">
+        AWS Backup vaults, scheduled recovery points, and backup restoration are not configured in this project. No backup status is being reported.
       </div>
 
       {/* Create Final Snapshot Modal */}
@@ -410,19 +290,6 @@ export default function SubmissionBackup({ currentUser }) {
                   placeholder="Notes for faculty evaluation, test instructions, or dependencies..."
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-900 focus:outline-none focus:border-sky-500"
                 />
-              </div>
-
-              <div className="flex items-center space-x-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <input
-                  id="include-all"
-                  type="checkbox"
-                  checked={includeAll}
-                  onChange={(e) => setIncludeAll(e.target.checked)}
-                  className="w-4 h-4 text-emerald-600 rounded border-slate-300"
-                />
-                <label htmlFor="include-all" className="text-xs font-medium text-slate-700">
-                  Include all project files (source code, datasets, reports, presentations)
-                </label>
               </div>
 
               <div className="flex justify-end space-x-2 pt-2">

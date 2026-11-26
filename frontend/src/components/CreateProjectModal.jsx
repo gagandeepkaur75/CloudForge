@@ -7,6 +7,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
   const [category, setCategory] = useState('Cloud Architecture');
   const [visibility, setVisibility] = useState('Team Shared');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
@@ -14,11 +15,14 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
     e.preventDefault();
     if (!title.trim()) return;
     setLoading(true);
+    setError('');
     try {
       await onCreate({ title, description, category, visibility });
       setTitle('');
       setDescription('');
       onClose();
+    } catch (submitError) {
+      setError(submitError.message || 'Project creation failed.');
     } finally {
       setLoading(false);
     }
@@ -45,6 +49,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700" role="alert">{error}</div>}
           <div>
             <label className="block text-xs font-bold uppercase text-slate-700 tracking-wider mb-1.5">
               Project Name *

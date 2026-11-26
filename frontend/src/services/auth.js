@@ -1,162 +1,270 @@
 /**
- * CloudForge Authentication Service
- * Supports Amazon Cognito User Pool integration and local Mock Mode fallback.
+ * CloudForge authentication through an Amazon Cognito User Pool.
  */
 
 const STORAGE_KEY = 'cloudforge_auth_user';
-const TOKEN_KEY = 'cloudforge_auth_token';
-const MOCK_FLAG_KEY = 'cloudforge_use_mock';
+const ID_TOKEN_KEY = 'cloudforge_id_token';
+const ACCESS_TOKEN_KEY = 'cloudforge_access_token';
+const REFRESH_TOKEN_KEY = 'cloudforge_refresh_token';
+let tokenRefreshPromise = null;
 
-// Pre-configured student team members for UCS531 evaluation
-export const DEMO_USERS = [
-  {
-    email: 'gkaur10_be24@thapar.edu',
-    name: 'Gagandeep Kaur',
-    role: 'Admin',
-    rollNo: '1024170063',
-    department: 'Computer Science & Engineering',
-    avatar: 'GK'
-  },
-  {
-    email: 'psingh18_be24@thapar.edu',
-    name: 'Puneet Singh',
-    role: 'Editor',
-    rollNo: '1024170066',
-    department: 'Computer Science & Engineering',
-    avatar: 'PS'
-  },
-  {
-    email: 'agupta5_be24@thapar.edu',
-    name: 'Aditya Gupta',
-    role: 'Editor',
-    rollNo: '1024170204',
-    department: 'Computer Science & Engineering',
-    avatar: 'AG'
+function getCognitoConfig() {
+  const userPoolId = import.meta.env?.VITE_USER_POOL_ID;
+  const clientId = import.meta.env?.VITE_CLIENT_ID;
+  const region = import.meta.env?.VITE_AWS_REGION || userPoolId?.split('_')[0];
+
+  if (!userPoolId || !clientId || !region) {
+    throw new Error('Authentication is not configured. Set the Cognito User Pool ID, app client ID, and AWS region.');
   }
-];
+
+  return { clientId, region };
+}
+
+async function cognitoRequest(target, body) {
+  const { clientId, region } = getCognitoConfig();
+  const requestBody = body.AccessToken ? body : { ClientId: clientId, ...body };
+  const response = await fetch(`https://cognito-idp.${region}.amazonaws.com/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': `AWSCognitoIdentityProviderService.${target}`
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const errorName = data.__type?.split('#').pop();
+    const messages = {
+      NotAuthorizedException: 'The email or password is incorrect.',
+      UserNotFoundException: 'No account was found for this email address.',
+      UserNotConfirmedException: 'Confirm your email address before signing in.',
+      UsernameExistsException: 'An account with this email already exists.',
+      CodeMismatchException: 'The verification code is incorrect.',
+      ExpiredCodeException: 'The verification code has expired. Request a new one.',
+      LimitExceededException: 'Too many attempts. Please wait and try again.',
+      InvalidPasswordException: 'The password does not meet the account password requirements.'
+    };
+    throw new Error(messages[errorName] || data.message || 'Cognito request failed. Please try again.');
+  }
+
+  return data;
+}
+
+function clearStoredSession() {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(ID_TOKEN_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+function decodeTokenPayload(token) {
+  try {
+    const encoded = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(encoded));
+  } catch {
+    return null;
+  }
+}
+
+function createUserFromIdToken(idToken) {
+  const claims = decodeTokenPayload(idToken);
+  if (!claims || typeof claims.exp !== 'number' || claims.exp <= Date.now() / 1000) {
+    throw new Error('Cognito returned an invalid or expired identity token.');
+  }
+
+  return {
+    email: claims.email || claims.username || '',
+    name: claims.name || claims.email || 'CloudForge user',
+    role: 'Member',
+    avatar: (claims.name || claims.email || 'U').split(/\s|@/).filter(Boolean).map(part => part[0]).join('').slice(0, 2).toUpperCase(),
+    cognitoSub: claims.sub
+  };
+}
+
+function saveSession(authenticationResult) {
+  const { IdToken, AccessToken, RefreshToken } = authenticationResult || {};
+  if (!IdToken || !AccessToken) {
+    throw new Error('Cognito did not return a complete authenticated session.');
+  }
+  const user = createUserFromIdToken(IdToken);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+  localStorage.setItem(ID_TOKEN_KEY, IdToken);
+  localStorage.setItem(ACCESS_TOKEN_KEY, AccessToken);
+  if (RefreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, RefreshToken);
+  return user;
+}
 
 export const authService = {
-  isMockMode() {
-    const stored = localStorage.getItem(MOCK_FLAG_KEY);
-    if (stored !== null) return stored === 'true';
-    const envVal = import.meta.env?.VITE_USE_MOCK;
-    return envVal === 'true' || !this.getApiUrl();
-  },
-
-  setMockMode(enabled) {
-    localStorage.setItem(MOCK_FLAG_KEY, enabled ? 'true' : 'false');
-  },
-
-  getApiUrl() {
-    return import.meta.env?.VITE_API_URL || '';
-  },
-
-  getUserPoolId() {
-    return import.meta.env?.VITE_USER_POOL_ID || '';
-  },
-
-  getClientId() {
-    return import.meta.env?.VITE_CLIENT_ID || '';
+  clearLocalSession() {
+    clearStoredSession();
   },
 
   getCurrentUser() {
-    try {
-      const userStr = localStorage.getItem(STORAGE_KEY);
-      if (userStr) return JSON.parse(userStr);
-    } catch (e) {
-      console.error('Failed to parse cached user', e);
+    const idToken = localStorage.getItem(ID_TOKEN_KEY);
+    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    const storedUser = localStorage.getItem(STORAGE_KEY);
+    const claims = idToken ? decodeTokenPayload(idToken) : null;
+
+    if (!claims || !accessToken || !storedUser) {
+      clearStoredSession();
+      return null;
     }
-    // Default fallback to Gagandeep Kaur (Admin / Lead)
-    return DEMO_USERS[0];
+    if (claims.exp <= Date.now() / 1000) {
+      if (!localStorage.getItem(REFRESH_TOKEN_KEY)) clearStoredSession();
+      return null;
+    }
+
+    try {
+      return { ...JSON.parse(storedUser), ...createUserFromIdToken(idToken) };
+    } catch (error) {
+      console.error('Unable to restore the Cognito session:', error);
+      clearStoredSession();
+      return null;
+    }
   },
 
   getToken() {
-    return localStorage.getItem(TOKEN_KEY) || 'mock-cognito-jwt-token-admin';
+    const idToken = localStorage.getItem(ID_TOKEN_KEY);
+    const claims = idToken ? decodeTokenPayload(idToken) : null;
+    if (!claims || typeof claims.exp !== 'number' || claims.exp <= Date.now() / 1000) {
+      if (!localStorage.getItem(REFRESH_TOKEN_KEY)) clearStoredSession();
+      return null;
+    }
+    return idToken;
+  },
+
+  async getValidToken() {
+    const idToken = localStorage.getItem(ID_TOKEN_KEY);
+    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    const claims = idToken ? decodeTokenPayload(idToken) : null;
+    const hasSession = claims && accessToken && localStorage.getItem(STORAGE_KEY);
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+
+    if (!hasSession || typeof claims.exp !== 'number') {
+      clearStoredSession();
+      return null;
+    }
+
+    if (claims.exp > Date.now() / 1000 + 60) return idToken;
+    if (!refreshToken) {
+      clearStoredSession();
+      return null;
+    }
+
+    if (!tokenRefreshPromise) {
+      tokenRefreshPromise = (async () => {
+        try {
+          const response = await cognitoRequest('InitiateAuth', {
+            AuthFlow: 'REFRESH_TOKEN_AUTH',
+            AuthParameters: { REFRESH_TOKEN: refreshToken }
+          });
+          if (!response.AuthenticationResult) {
+            throw new Error('Cognito did not refresh the authenticated session.');
+          }
+          saveSession({ ...response.AuthenticationResult, RefreshToken: refreshToken });
+          return localStorage.getItem(ID_TOKEN_KEY);
+        } catch (error) {
+          clearStoredSession();
+          throw error;
+        }
+      })();
+    }
+
+    try {
+      return await tokenRefreshPromise;
+    } finally {
+      tokenRefreshPromise = null;
+    }
+  },
+
+  async restoreSession() {
+    const token = await this.getValidToken();
+    return token ? this.getCurrentUser() : null;
   },
 
   async signIn(email, password) {
-    // If live Cognito is configured and mock mode is disabled, initiate Cognito SRP/PASSWORD auth
-    if (!this.isMockMode() && this.getUserPoolId() && this.getClientId()) {
-      try {
-        const response = await fetch(`https://cognito-idp.${import.meta.env.VITE_AWS_REGION || 'us-east-1'}.amazonaws.com/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-amz-json-1.1',
-            'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth'
-          },
-          body: JSON.stringify({
-            AuthFlow: 'USER_PASSWORD_AUTH',
-            ClientId: this.getClientId(),
-            AuthParameters: {
-              USERNAME: email,
-              PASSWORD: password
-            }
-          })
-        });
+    const response = await cognitoRequest('InitiateAuth', {
+      AuthFlow: 'USER_PASSWORD_AUTH',
+      AuthParameters: { USERNAME: email.trim(), PASSWORD: password }
+    });
 
-        const data = await response.json();
-        if (data.AuthenticationResult) {
-          const idToken = data.AuthenticationResult.IdToken;
-          const user = {
-            email,
-            name: email.split('@')[0],
-            role: 'Editor',
-            avatar: email.substring(0, 2).toUpperCase()
-          };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-          localStorage.setItem(TOKEN_KEY, idToken);
-          return user;
-        }
-        throw new Error(data.message || 'Cognito authentication failed');
-      } catch (err) {
-        console.warn('Cognito sign in error, falling back to mock authentication:', err.message);
-      }
+    if (response.AuthenticationResult) return saveSession(response.AuthenticationResult);
+    if (response.ChallengeName) {
+      throw new Error(`Cognito requires an additional sign-in step (${response.ChallengeName}), which is not configured yet.`);
     }
+    throw new Error('Cognito did not complete sign-in.');
+  },
 
-    // Mock Mode fallback
-    const matched = DEMO_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-    const user = matched || {
-      email,
-      name: email.split('@')[0],
-      role: 'Editor',
-      rollNo: 'N/A',
-      department: 'Cloud Computing UCS531',
-      avatar: email.substring(0, 2).toUpperCase()
-    };
+  async signUp(email, password, name) {
+    await cognitoRequest('SignUp', {
+      Username: email.trim(),
+      Password: password,
+      UserAttributes: [
+        { Name: 'email', Value: email.trim() },
+        { Name: 'name', Value: name.trim() }
+      ]
+    });
+    return { confirmationRequired: true };
+  },
 
+  async confirmSignUp(email, confirmationCode) {
+    await cognitoRequest('ConfirmSignUp', {
+      Username: email.trim(),
+      ConfirmationCode: confirmationCode.trim()
+    });
+  },
+
+  async resendSignUpCode(email) {
+    await cognitoRequest('ResendConfirmationCode', { Username: email.trim() });
+  },
+
+  async forgotPassword(email) {
+    await cognitoRequest('ForgotPassword', { Username: email.trim() });
+  },
+
+  async confirmForgotPassword(email, confirmationCode, newPassword) {
+    await cognitoRequest('ConfirmForgotPassword', {
+      Username: email.trim(),
+      ConfirmationCode: confirmationCode.trim(),
+      Password: newPassword
+    });
+  },
+
+  async updateUserProfile(updatedData) {
+    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!accessToken) throw new Error('Your session has expired. Please sign in again.');
+
+    const attributes = [];
+    if (updatedData.name) attributes.push({ Name: 'name', Value: updatedData.name.trim() });
+    const currentUser = this.getCurrentUser();
+    if (updatedData.email && updatedData.email.trim() !== currentUser?.email) {
+      throw new Error('Email changes require a Cognito verification flow, which is not configured yet.');
+    }
+    if (attributes.length === 0) return this.getCurrentUser();
+
+    await cognitoRequest('UpdateUserAttributes', { AccessToken: accessToken, UserAttributes: attributes });
+    const user = { ...currentUser, name: updatedData.name.trim() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    localStorage.setItem(TOKEN_KEY, `mock-jwt-${user.role.toLowerCase()}-${Date.now()}`);
     return user;
   },
 
-  async signUp(email, password, name, role = 'Editor') {
-    const newUser = {
-      email,
-      name,
-      role,
-      rollNo: '102417' + Math.floor(1000 + Math.random() * 9000),
-      department: 'Computer Science & Engineering',
-      avatar: name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
-    localStorage.setItem(TOKEN_KEY, `mock-jwt-${role.toLowerCase()}-${Date.now()}`);
-    return newUser;
+  async changePassword(oldPassword, newPassword) {
+    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!accessToken) throw new Error('Your session has expired. Please sign in again.');
+    await cognitoRequest('ChangePassword', {
+      AccessToken: accessToken,
+      PreviousPassword: oldPassword,
+      ProposedPassword: newPassword
+    });
+    return { success: true, message: 'Your Cognito password was updated.' };
   },
 
-  updateUserProfile(updatedData) {
-    const current = this.getCurrentUser();
-    const merged = { ...current, ...updatedData };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-    return merged;
-  },
-
-  changePassword(oldPassword, newPassword) {
-    // In mock mode, simply simulate success
-    return { success: true, message: 'Password updated successfully in Amazon Cognito.' };
-  },
-
-  signOut() {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(TOKEN_KEY);
+  async signOut() {
+    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    clearStoredSession();
+    if (accessToken) {
+      await cognitoRequest('GlobalSignOut', { AccessToken: accessToken });
+    }
   }
 };

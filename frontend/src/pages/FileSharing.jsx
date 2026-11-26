@@ -13,7 +13,7 @@ import {
   FileText,
   Ban
 } from 'lucide-react';
-import { api, getMockDb } from '../services/api';
+import { api } from '../services/api';
 
 export default function FileSharing({ currentUser }) {
   const [sharedLinks, setSharedLinks] = useState([]);
@@ -30,37 +30,44 @@ export default function FileSharing({ currentUser }) {
   const [expiryHours, setExpiryHours] = useState(24);
   const [generating, setGenerating] = useState(false);
   const [newlyGenerated, setNewlyGenerated] = useState(null);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    const res = await api.getSharedLinks();
-    setSharedLinks(res.data.sharedLinks || []);
-
-    const pRes = await api.getProjects();
-    const pList = pRes.data.projects || [];
-    setProjects(pList);
-    if (pList.length > 0) {
-      setSelectedProjectId(pList[0].projectId);
-    }
-
-    const db = getMockDb();
-    setFilesMap(db.files || {});
-    const initialFiles = db.files?.[pList[0]?.projectId] || [];
-    if (initialFiles.length > 0) {
-      setSelectedFileName(initialFiles[0].fileName);
+    try {
+      const pRes = await api.getProjects();
+      const pList = pRes.data.projects || [];
+      setProjects(pList);
+      if (pList.length > 0) {
+        setSelectedProjectId(pList[0].projectId);
+        const filesResponse = await api.getFiles(pList[0].projectId);
+        const files = filesResponse.data.files || [];
+        setFilesMap({ [pList[0].projectId]: files });
+        if (files.length > 0) setSelectedFileName(files[0].fileName);
+      }
+      try {
+        const linksResponse = await api.getSharedLinks();
+        setSharedLinks(linksResponse.data.sharedLinks || []);
+      } catch (error) {
+        setLoadError(error.message);
+      }
+    } catch (error) {
+      setLoadError(error.message || 'Failed to load project files.');
     }
   };
 
-  const handleProjectSelect = (pid) => {
+  const handleProjectSelect = async (pid) => {
     setSelectedProjectId(pid);
-    const projFiles = filesMap[pid] || [];
-    if (projFiles.length > 0) {
-      setSelectedFileName(projFiles[0].fileName);
-    } else {
-      setSelectedFileName('');
+    try {
+      const response = await api.getFiles(pid);
+      const projFiles = response.data.files || [];
+      setFilesMap((existing) => ({ ...existing, [pid]: projFiles }));
+      setSelectedFileName(projFiles[0]?.fileName || '');
+    } catch (error) {
+      setLoadError(error.message || 'Failed to load project files.');
     }
   };
 
@@ -80,6 +87,8 @@ export default function FileSharing({ currentUser }) {
       setNewlyGenerated(res.data);
       const updated = await api.getSharedLinks();
       setSharedLinks(updated.data.sharedLinks || []);
+    } catch (error) {
+      setLoadError(error.message || 'Failed to create a share link.');
     } finally {
       setGenerating(false);
     }
@@ -87,9 +96,13 @@ export default function FileSharing({ currentUser }) {
 
   const handleRevoke = async (linkId) => {
     if (!window.confirm('Revoke this share link immediately? The temporary token will expire.')) return;
-    await api.revokeShareLink(linkId);
-    const updated = await api.getSharedLinks();
-    setSharedLinks(updated.data.sharedLinks || []);
+    try {
+      await api.revokeShareLink(linkId);
+      const updated = await api.getSharedLinks();
+      setSharedLinks(updated.data.sharedLinks || []);
+    } catch (error) {
+      setLoadError(error.message || 'Failed to revoke the share link.');
+    }
   };
 
   const copyToClipboard = (url, id) => {
@@ -144,6 +157,12 @@ export default function FileSharing({ currentUser }) {
           <span>Generate Share Link</span>
         </button>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800" role="status">
+          {loadError}
+        </div>
+      )}
 
       {/* Info Card */}
       <div className="bg-sky-50/60 border border-sky-200 rounded-2xl p-4 text-xs text-sky-900 flex items-start space-x-3">

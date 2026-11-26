@@ -208,7 +208,7 @@ export default function VersionModal({
                         </div>
                         <div className="flex items-center space-x-1">
                           <User className="w-3.5 h-3.5 text-slate-400" />
-                          <span className="truncate max-w-[150px]">{ver.uploadedBy || 'Team Member'}</span>
+                          <span className="truncate max-w-[150px]">{ver.uploadedBy || 'Unknown'}</span>
                         </div>
                       </div>
                     </div>

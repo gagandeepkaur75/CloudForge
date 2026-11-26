@@ -15,7 +15,7 @@ import {
   X,
   UserCheck
 } from 'lucide-react';
-import { api, getMockDb } from '../services/api';
+import { api } from '../services/api';
 
 export default function TeamMembers({ currentUser }) {
   const [projects, setProjects] = useState([]);
@@ -43,17 +43,24 @@ export default function TeamMembers({ currentUser }) {
       setProjects(projList);
       if (projList.length > 0) {
         setSelectedProjectId(projList[0].projectId);
-        setMembers(projList[0].members || []);
+        const memberResponse = await api.getTeamMembers(projList[0].projectId);
+        setMembers(memberResponse.data.members || []);
       }
+    } catch (error) {
+      setAlertMsg({ type: 'error', text: error.message || 'Failed to load team members.' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleProjectSelect = (pid) => {
+  const handleProjectSelect = async (pid) => {
     setSelectedProjectId(pid);
-    const p = projects.find(x => x.projectId === pid);
-    if (p) setMembers(p.members || []);
+    try {
+      const response = await api.getTeamMembers(pid);
+      setMembers(response.data.members || []);
+    } catch (error) {
+      setAlertMsg({ type: 'error', text: error.message || 'Failed to load team members.' });
+    }
   };
 
   const handleInvite = async (e) => {
@@ -63,32 +70,34 @@ export default function TeamMembers({ currentUser }) {
     setAlertMsg(null);
     try {
       await api.inviteMember(selectedProjectId, inviteEmail, inviteRole);
-      setAlertMsg({ type: 'success', text: `Invitation sent to ${inviteEmail} as ${inviteRole}!` });
+      setAlertMsg({ type: 'success', text: `${inviteEmail} was added to the project as ${inviteRole}. They can access it after signing in with this email.` });
       setInviteEmail('');
       setShowInviteModal(false);
 
-      // Refresh members
-      const db = getMockDb();
-      const p = db.projects.find(x => x.projectId === selectedProjectId);
-      if (p) setMembers(p.members || []);
+      const memberResponse = await api.getTeamMembers(selectedProjectId);
+      setMembers(memberResponse.data.members || []);
     } catch (err) {
-      setAlertMsg({ type: 'error', text: 'Failed to invite collaborator.' });
+      setAlertMsg({ type: 'error', text: err.message || 'Failed to invite collaborator.' });
     } finally {
       setInviteLoading(false);
     }
   };
 
   const handleRoleChange = async (email, newRole) => {
-    await api.updateMemberRole(selectedProjectId, email, newRole);
-    setMembers(members.map(m => m.email === email ? { ...m, role: newRole } : m));
-    setAlertMsg({ type: 'success', text: `Updated ${email}'s role to ${newRole}.` });
+    try {
+      await api.updateMemberRole(selectedProjectId, email, newRole);
+    } catch (error) {
+      setAlertMsg({ type: 'error', text: error.message || 'Failed to update member role.' });
+    }
   };
 
   const handleRemoveMember = async (email) => {
     if (!window.confirm(`Remove ${email} from this project workspace?`)) return;
-    await api.removeMember(selectedProjectId, email);
-    setMembers(members.filter(m => m.email !== email));
-    setAlertMsg({ type: 'success', text: `Removed ${email} from the workspace.` });
+    try {
+      await api.removeMember(selectedProjectId, email);
+    } catch (error) {
+      setAlertMsg({ type: 'error', text: error.message || 'Failed to remove member.' });
+    }
   };
 
   const filteredMembers = members.filter(m => 

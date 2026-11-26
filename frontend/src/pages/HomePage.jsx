@@ -21,9 +21,8 @@ import {
   FileText,
   Code2
 } from 'lucide-react';
-import { DEMO_USERS } from '../services/auth';
 
-export default function HomePage({ onNavigateLogin, onQuickLogin }) {
+export default function HomePage({ onNavigateLogin }) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50/60 via-white to-slate-50 text-slate-800">
       
@@ -48,7 +47,7 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
               <div className="flex items-center space-x-2">
                 <span className="text-2xl font-black tracking-tight text-slate-900">Cloud<span className="text-blue-600">Forge</span></span>
                 <span className="hidden sm:inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-mono">
-                  AWS SERVERLESS
+                  AWS ARCHITECTURE
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium">Collaborative Student Engineering Workspace</p>
@@ -60,7 +59,7 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
             <a href="#features" className="hover:text-blue-600 transition">Features</a>
             <a href="#architecture" className="hover:text-blue-600 transition">5-Layer Architecture</a>
             <a href="#team" className="hover:text-blue-600 transition">Project Team</a>
-            <a href="#demo" className="hover:text-blue-600 transition">Live Demo</a>
+            <a href="#get-started" className="hover:text-blue-600 transition">Get Started</a>
           </nav>
 
           {/* Actions */}
@@ -105,7 +104,7 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
 
             {/* Subtitle */}
             <p className="mt-6 text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto font-normal">
-              A 100% serverless, event-driven AWS cloud platform designed to eliminate lost file versions, enforce role-based access, stream real-time audit logs, and seal immutable academic submission snapshots.
+              A collaborative workspace with a serverless AWS architecture design for file history, project access controls, activity logs, and submission archives. AWS deployment status has not been verified.
             </p>
 
             {/* CTAs */}
@@ -158,8 +157,8 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
                   <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
                   <span className="ml-2 font-mono text-xs text-slate-500">https://cloudforge.workspace/dashboard</span>
                 </div>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
-                  ● AWS CLOUD CONNECTED
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 font-mono">
+                  DESIGN PREVIEW · STATUS UNVERIFIED
                 </span>
               </div>
 
@@ -167,24 +166,25 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
               <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
                   <span className="text-xs text-slate-400 font-medium">Workspaces</span>
-                  <p className="text-2xl font-black text-slate-900 mt-1 font-mono">2 Active</p>
-                  <span className="text-[11px] text-blue-600 font-medium">UCS531 Team 04</span>
+                  <p className="text-2xl font-black text-slate-900 mt-1 font-mono">Projects</p>
+                  <span className="text-[11px] text-blue-600 font-medium">Project workspaces</span>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-                  <span className="text-xs text-slate-400 font-medium">Total S3 Storage</span>
-                  <p className="text-2xl font-black text-blue-600 mt-1 font-mono">15.4 MB</p>
-                  <span className="text-[11px] text-slate-500">Versioned in S3</span>
+                  <span className="text-xs text-slate-400 font-medium">File Storage</span>
+                  <p className="text-2xl font-black text-blue-600 mt-1 font-mono">Amazon S3</p>
+                  <span className="text-[11px] text-slate-500">AWS configuration unverified</span>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-                  <span className="text-xs text-slate-400 font-medium">Cognito Members</span>
-                  <p className="text-2xl font-black text-slate-900 mt-1 font-mono">3 Students</p>
-                  <span className="text-[11px] text-emerald-600 font-medium">RBAC Active</span>
+                  <span className="text-xs text-slate-400 font-medium">Authentication</span>
+                  <p className="text-2xl font-black text-slate-900 mt-1 font-mono">Cognito</p>
+                  <span className="text-[11px] text-amber-600 font-medium">AWS configuration unverified</span>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-                  <span className="text-xs text-slate-400 font-medium">Submission State</span>
-                  <p className="text-2xl font-black text-emerald-600 mt-1 font-mono">SEALED</p>
-                  <span className="text-[11px] text-slate-500">Immutable /snapshots/</span>
+                  <span className="text-xs text-slate-400 font-medium">Snapshots</span>
+                  <p className="text-2xl font-black text-emerald-600 mt-1 font-mono">ZIP Archive</p>
+                  <span className="text-[11px] text-slate-500">S3 Object Lock not configured</span>
                 </div>
+                <p className="px-6 pb-5 text-xs text-slate-500">This is a product preview, not live account data. AWS deployment and connection status have not been verified.</p>
               </div>
             </div>
           </div>
@@ -270,7 +270,7 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
                 Academic Submission Snapshots
               </h3>
               <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-                Project Leads can seal the project at deadline. All current files are copied into an immutable S3 prefix <code className="text-blue-700 bg-blue-50 px-1 py-0.5 rounded text-xs font-mono">/snapshots/</code> with an automated bundled <code className="text-blue-700 bg-blue-50 px-1 py-0.5 rounded text-xs font-mono">.zip</code> archive.
+                Once AWS is configured, project admins can create a ZIP archive of current files in a timestamped S3 prefix. Object Lock and immutable retention are not configured.
               </p>
             </div>
 
@@ -280,10 +280,10 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
                 <Shield className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition">
-                Cognito RBAC & AWS Backup
+                Cognito Authentication & Project Access
               </h3>
               <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-                Granular authorization distinguishes <span className="font-semibold text-blue-700">ProjectLead</span> from <span className="font-semibold text-slate-700">Contributor</span>. Daily AWS Backup vault plans protect S3 and DynamoDB against accidental deletion.
+                After AWS configuration, Cognito will authenticate users and project membership will control API access. AWS Backup automation is not implemented.
               </p>
             </div>
           </div>
@@ -317,7 +317,7 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
                 </div>
                 <div>
                   <h4 className="text-base font-bold text-slate-900">User & Client Tier</h4>
-                  <p className="text-xs text-slate-500">Student Team Members with ProjectLead and Contributor roles</p>
+                  <p className="text-xs text-slate-500">Project members with Admin, Editor, Contributor, or Viewer roles</p>
                 </div>
               </div>
               <span className="text-xs font-mono font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 self-start sm:self-auto">
@@ -337,7 +337,7 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
                 </div>
               </div>
               <span className="text-xs font-mono font-semibold px-3 py-1 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 self-start sm:self-auto">
-                AWS Amplify / S3 Hosting
+                Vercel (current frontend host)
               </span>
             </div>
 
@@ -349,11 +349,11 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
                 </div>
                 <div>
                   <h4 className="text-base font-bold text-slate-900">Authentication & API Tier</h4>
-                  <p className="text-xs text-slate-500">Cognito User Pool JWT Authorizer ➔ Amazon API Gateway ➔ FastAPI Lambda</p>
+                  <p className="text-xs text-slate-500">Target: Cognito JWT authorizer ➔ Amazon API Gateway ➔ FastAPI Lambda</p>
                 </div>
               </div>
               <span className="text-xs font-mono font-semibold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 self-start sm:self-auto">
-                Cognito JWT + AWS Lambda
+                Deployment pending
               </span>
             </div>
 
@@ -409,42 +409,10 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {DEMO_USERS.map((student) => (
-              <div 
-                key={student.rollNo}
-                className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-400 hover:shadow-lg transition duration-200 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white font-extrabold text-base flex items-center justify-center shadow-md shadow-blue-500/25">
-                      {student.avatar}
-                    </div>
-                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
-                      student.role === 'ProjectLead' 
-                        ? 'bg-blue-100 text-blue-800 border-blue-200' 
-                        : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                    }`}>
-                      {student.role}
-                    </span>
-                  </div>
-
-                  <h3 className="text-lg font-bold text-slate-900">{student.name}</h3>
-                  <p className="text-xs text-slate-500 font-mono mt-0.5">Roll No: {student.rollNo}</p>
-                  <p className="text-xs text-slate-600 mt-2 truncate font-mono">{student.email}</p>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-slate-200">
-                  <button
-                    onClick={() => onQuickLogin(student)}
-                    className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-blue-600 hover:text-white text-blue-600 border border-blue-200 text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-xs"
-                  >
-                    <span>Instant Login as {student.name.split(' ')[0]}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
+            <Users className="mx-auto h-8 w-8 text-blue-600" />
+            <h3 className="mt-4 text-lg font-bold text-slate-900">Sign in with your own account</h3>
+            <p className="mt-2 text-sm text-slate-600">Team access is designed around authenticated accounts and project permissions. Demo accounts and instant-login shortcuts are not available.</p>
           </div>
         </div>
       </section>
@@ -452,13 +420,13 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
       {/* ------------------------------------------------------------------ */}
       {/* 6. READY FOR EVALUATION CTA */}
       {/* ------------------------------------------------------------------ */}
-      <section id="demo" className="py-16 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white">
+      <section id="get-started" className="py-16 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white">
         <div className="max-w-5xl mx-auto px-4 text-center space-y-6">
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Ready to Test the CloudForge Workspace?
+            Explore the CloudForge Workspace
           </h2>
           <p className="text-base text-blue-100 max-w-2xl mx-auto">
-            Experience direct S3 uploads, multi-versioning, temporary sharing, and academic submission snapshots.
+            Cloud features become available after the AWS backend and account configuration are in place.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <button
@@ -466,12 +434,6 @@ export default function HomePage({ onNavigateLogin, onQuickLogin }) {
               className="px-8 py-3.5 rounded-xl bg-white hover:bg-slate-100 text-blue-700 font-bold text-base shadow-xl transition"
             >
               Launch Live Workspace
-            </button>
-            <button
-              onClick={() => onQuickLogin(DEMO_USERS[0])}
-              className="px-8 py-3.5 rounded-xl bg-blue-800/80 hover:bg-blue-900 text-white font-bold text-base border border-blue-400/40 transition"
-            >
-              Sign In as Lead (Gagandeep Kaur)
             </button>
           </div>
         </div>

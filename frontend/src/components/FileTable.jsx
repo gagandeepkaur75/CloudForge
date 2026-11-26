@@ -123,7 +123,7 @@ export default function FileTable({
                     {file.fileName}
                   </span>
                   <p className="text-[11px] text-slate-400 font-sans">
-                    Uploaded by {file.uploadedBy || 'Team Member'}
+                    Uploaded by {file.uploadedBy || 'Unknown'}
                   </p>
                 </div>
               </td>

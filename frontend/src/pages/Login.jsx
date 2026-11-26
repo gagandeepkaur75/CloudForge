@@ -6,38 +6,31 @@ import {
   User, 
   ArrowRight, 
   CheckCircle2, 
-  Shield, 
-  Sparkles,
-  ToggleLeft,
-  ToggleRight,
   ArrowLeft,
   Eye,
   EyeOff,
   AlertCircle
 } from 'lucide-react';
-import { authService, DEMO_USERS } from '../services/auth';
+import { authService } from '../services/auth';
 
 export default function Login({ onLoginSuccess, onGoHome }) {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [signupConfirmationRequired, setSignupConfirmationRequired] = useState(false);
+  const [confirmationCode, setConfirmationCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState('Editor');
-  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [forgotModal, setForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
-  const [mockMode, setMockMode] = useState(authService.isMockMode());
-
-  const handleToggleMock = () => {
-    const nextVal = !mockMode;
-    setMockMode(nextVal);
-    authService.setMockMode(nextVal);
-  };
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotStep, setForgotStep] = useState('request');
+  const [forgotMessage, setForgotMessage] = useState('');
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -46,13 +39,19 @@ export default function Login({ onLoginSuccess, onGoHome }) {
     setSuccessMsg('');
 
     // Validation
-    if (!email || !password) {
+    if (!email || (!signupConfirmationRequired && !password)) {
       setError('Please provide all required fields.');
       setLoading(false);
       return;
     }
 
-    if (isSignUp) {
+    if (signupConfirmationRequired) {
+      if (!confirmationCode.trim()) {
+        setError('Enter the confirmation code sent to your email.');
+        setLoading(false);
+        return;
+      }
+    } else if (isSignUp) {
       if (!name.trim()) {
         setError('Please enter your full name.');
         setLoading(false);
@@ -71,42 +70,54 @@ export default function Login({ onLoginSuccess, onGoHome }) {
     }
 
     try {
-      let user;
-      if (isSignUp) {
-        user = await authService.signUp(email, password, name, role);
-        setSuccessMsg('Account created successfully! Signing in...');
+      if (signupConfirmationRequired) {
+        await authService.confirmSignUp(email, confirmationCode);
+        setSignupConfirmationRequired(false);
+        setConfirmationCode('');
+        setIsSignUp(false);
+        setPassword('');
+        setConfirmPassword('');
+        setSuccessMsg('Email confirmed. Sign in with your email and password.');
+      } else if (isSignUp) {
+        await authService.signUp(email, password, name);
+        setSignupConfirmationRequired(true);
+        setPassword('');
+        setConfirmPassword('');
+        setSuccessMsg('Account created. Enter the confirmation code sent to your email.');
       } else {
-        user = await authService.signIn(email, password);
-      }
-      setTimeout(() => {
+        const user = await authService.signIn(email, password);
         onLoginSuccess(user);
-      }, 400);
+      }
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please verify credentials.');
+      setError(err.message || 'Authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickLogin = async (demoUser) => {
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
     setLoading(true);
     setError('');
+    setForgotMessage('');
     try {
-      const user = await authService.signIn(demoUser.email, 'Password123!');
-      onLoginSuccess(user);
+      if (forgotStep === 'request') {
+        await authService.forgotPassword(forgotEmail);
+        setForgotStep('confirm');
+        setForgotMessage('A password reset code was sent if this account is eligible.');
+      } else {
+        await authService.confirmForgotPassword(forgotEmail, forgotCode, forgotNewPassword);
+        setForgotModal(false);
+        setForgotStep('request');
+        setForgotCode('');
+        setForgotNewPassword('');
+        setSuccessMsg('Password reset completed. Sign in with your new password.');
+      }
     } catch (err) {
-      setError('Quick sign in failed');
+      setForgotMessage(err.message || 'Password reset failed. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleForgotPassword = (e) => {
-    e.preventDefault();
-    if (!forgotEmail) return;
-    setSuccessMsg(`Password reset instructions sent to ${forgotEmail} via Amazon Cognito.`);
-    setForgotModal(false);
-    setForgotEmail('');
   };
 
   return (
@@ -135,7 +146,7 @@ export default function Login({ onLoginSuccess, onGoHome }) {
         </div>
         <h2 className="text-3xl font-black text-slate-900 tracking-tight">Cloud<span className="text-sky-500">Forge</span></h2>
         <p className="mt-1 text-sm text-slate-600 font-medium">
-          {isSignUp ? 'Create your collaborative student workspace account' : 'Welcome back! Sign in to your workspace'}
+          {signupConfirmationRequired ? 'Confirm your email address' : isSignUp ? 'Create your collaborative student workspace account' : 'Welcome back! Sign in to your workspace'}
         </p>
         <div className="mt-2.5 inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-xs text-sky-700 font-semibold font-mono">
           <span>UCS531 • Cloud Computing Capstone</span>
@@ -145,59 +156,7 @@ export default function Login({ onLoginSuccess, onGoHome }) {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4">
         <div className="bg-white py-8 px-6 sm:px-10 border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50">
           
-          {/* Quick Demo Switch Section */}
-          <div className="mb-6 p-4 rounded-2xl bg-sky-50/50 border border-sky-100">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
-                <Sparkles className="w-4 h-4 text-sky-500" />
-                <span>Quick Team Demo Login</span>
-              </span>
-              <button 
-                onClick={handleToggleMock} 
-                className="text-[11px] text-slate-500 flex items-center space-x-1 hover:text-sky-700 font-medium"
-                title="Toggle between Live AWS API Gateway and Local Mock Mode"
-              >
-                <span>{mockMode ? 'Mock Engine' : 'Live AWS'}</span>
-                {mockMode ? (
-                  <ToggleRight className="w-4 h-4 text-sky-500" />
-                ) : (
-                  <ToggleLeft className="w-4 h-4 text-emerald-600" />
-                )}
-              </button>
-            </div>
-            
-            <div className="space-y-1.5">
-              {DEMO_USERS.map((u) => (
-                <button
-                  key={u.email}
-                  type="button"
-                  onClick={() => handleQuickLogin(u)}
-                  disabled={loading}
-                  className="w-full px-3 py-2 rounded-xl bg-white hover:bg-sky-50 hover:border-sky-300 border border-slate-200 text-left flex items-center justify-between text-xs transition group shadow-2xs"
-                >
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-6 h-6 rounded-lg bg-sky-100 text-sky-700 group-hover:bg-sky-500 group-hover:text-white font-extrabold flex items-center justify-center text-[10px] transition">
-                      {u.avatar}
-                    </div>
-                    <div>
-                      <span className="font-bold text-slate-900 group-hover:text-sky-700 transition">{u.name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono ml-2">({u.role})</span>
-                    </div>
-                  </div>
-                  <span className="text-[11px] text-sky-500 group-hover:translate-x-0.5 font-bold transition">Sign in →</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-3 text-slate-400 font-bold">Or Email Credentials</span>
-            </div>
-          </div>
+          <p className="mb-5 text-center text-xs text-slate-500">Sign in securely with your CloudForge account.</p>
 
           {error && (
             <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 font-medium flex items-center space-x-2">
@@ -215,7 +174,7 @@ export default function Login({ onLoginSuccess, onGoHome }) {
 
           {/* Form */}
           <form className="space-y-4" onSubmit={handleFormSubmit}>
-            {isSignUp && (
+            {isSignUp && !signupConfirmationRequired && (
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700 tracking-wider mb-1.5">
                   Full Name *
@@ -250,12 +209,27 @@ export default function Login({ onLoginSuccess, onGoHome }) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="gkaur10_be24@thapar.edu"
+                  disabled={signupConfirmationRequired}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-3 text-sm text-slate-900 focus:outline-none focus:border-sky-500 focus:bg-white transition"
                 />
               </div>
             </div>
 
-            <div>
+            {signupConfirmationRequired ? (
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 tracking-wider mb-1.5">
+                  Email Confirmation Code *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoComplete="one-time-code"
+                  value={confirmationCode}
+                  onChange={(e) => setConfirmationCode(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm text-slate-900 focus:outline-none focus:border-sky-500 focus:bg-white transition"
+                />
+              </div>
+            ) : <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-bold uppercase text-slate-700 tracking-wider">
                   Password *
@@ -263,7 +237,12 @@ export default function Login({ onLoginSuccess, onGoHome }) {
                 {!isSignUp && (
                   <button
                     type="button"
-                    onClick={() => setForgotModal(true)}
+                    onClick={() => {
+                      setForgotEmail(email);
+                      setForgotStep('request');
+                      setForgotMessage('');
+                      setForgotModal(true);
+                    }}
                     className="text-xs text-sky-600 hover:text-sky-800 font-semibold"
                   >
                     Forgot password?
@@ -290,9 +269,9 @@ export default function Login({ onLoginSuccess, onGoHome }) {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-            </div>
+            </div>}
 
-            {isSignUp && (
+            {isSignUp && !signupConfirmationRequired && (
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700 tracking-wider mb-1.5">
                   Confirm Password *
@@ -313,51 +292,12 @@ export default function Login({ onLoginSuccess, onGoHome }) {
               </div>
             )}
 
-            {isSignUp && (
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-700 tracking-wider mb-1.5">
-                  Default Assigned Role
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['Admin', 'Editor', 'Viewer'].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setRole(r)}
-                      className={`py-2 px-2 rounded-xl border text-xs font-bold text-center transition ${
-                        role === r
-                          ? 'bg-sky-500 text-white border-sky-500 shadow-sm'
-                          : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {!isSignUp && (
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-xs text-slate-600 font-medium">
-                  Remember me on this browser
-                </label>
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={loading}
               className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-sm font-bold shadow-lg shadow-sky-500/25 transition flex items-center justify-center space-x-2 disabled:opacity-50 mt-3"
             >
-              <span>{loading ? 'Processing...' : isSignUp ? 'Create CloudForge Account' : 'Sign In to Workspace'}</span>
+              <span>{loading ? 'Processing...' : signupConfirmationRequired ? 'Confirm Email' : isSignUp ? 'Create CloudForge Account' : 'Sign In to Workspace'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -366,10 +306,15 @@ export default function Login({ onLoginSuccess, onGoHome }) {
           <div className="mt-5 text-center">
             <button
               type="button"
-              onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }}
+              onClick={() => {
+                if (signupConfirmationRequired) return;
+                setIsSignUp(!isSignUp);
+                setError('');
+                setSuccessMsg('');
+              }}
               className="text-xs font-semibold text-sky-600 hover:text-sky-800 transition"
             >
-              {isSignUp ? 'Already registered? Sign in here' : "Need a student account? Create one"}
+              {signupConfirmationRequired ? 'Check your email for the confirmation code' : isSignUp ? 'Already registered? Sign in here' : "Need a student account? Create one"}
             </button>
           </div>
         </div>
@@ -386,21 +331,49 @@ export default function Login({ onLoginSuccess, onGoHome }) {
           <div className="w-full max-w-sm bg-white border border-slate-200 rounded-3xl shadow-2xl p-6 space-y-4">
             <h3 className="text-base font-bold text-slate-900">Reset Your Password</h3>
             <p className="text-xs text-slate-500">
-              Enter your student email address and an Amazon Cognito verification code will be dispatched.
+              {forgotStep === 'request' ? 'Enter your email address to request a Cognito password reset code.' : 'Enter the code sent to your email and choose a new password.'}
             </p>
             <form onSubmit={handleForgotPassword} className="space-y-3">
               <input
                 type="email"
                 required
+                disabled={forgotStep === 'confirm'}
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
                 placeholder="student@thapar.edu"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-900 focus:outline-none focus:border-sky-500"
               />
+              {forgotStep === 'confirm' && (
+                <>
+                  <input
+                    type="text"
+                    required
+                    autoComplete="one-time-code"
+                    value={forgotCode}
+                    onChange={(e) => setForgotCode(e.target.value)}
+                    placeholder="Verification code"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-900 focus:outline-none focus:border-sky-500"
+                  />
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    placeholder="New password"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-900 focus:outline-none focus:border-sky-500"
+                  />
+                </>
+              )}
+              {forgotMessage && <p className="text-xs text-slate-600" role="status">{forgotMessage}</p>}
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setForgotModal(false)}
+                  onClick={() => {
+                    setForgotModal(false);
+                    setForgotStep('request');
+                    setForgotMessage('');
+                  }}
                   className="px-3.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
                 >
                   Cancel
@@ -409,7 +382,7 @@ export default function Login({ onLoginSuccess, onGoHome }) {
                   type="submit"
                   className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl"
                 >
-                  Send Reset Link
+                  {loading ? 'Processing...' : forgotStep === 'request' ? 'Send Reset Code' : 'Reset Password'}
                 </button>
               </div>
             </form>

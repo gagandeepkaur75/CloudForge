@@ -14,7 +14,7 @@ import {
   Copy,
   Check
 } from 'lucide-react';
-import { api, getMockDb } from '../services/api';
+import { api } from '../services/api';
 import FilePreviewModal from '../components/FilePreviewModal';
 
 export default function VersionHistory({ currentUser }) {
@@ -40,33 +40,39 @@ export default function VersionHistory({ currentUser }) {
       const pList = pRes.data.projects || [];
       setProjects(pList);
 
-      const db = getMockDb();
       if (pList.length > 0) {
         const firstProjId = pList[0].projectId;
         setSelectedProjectId(firstProjId);
-        const fList = db.files?.[firstProjId] || [];
+        const filesResponse = await api.getFiles(firstProjId);
+        const fList = filesResponse.data.files || [];
         setFiles(fList);
         if (fList.length > 0) {
           setSelectedFileName(fList[0].fileName);
           loadVersions(firstProjId, fList[0].fileName);
         }
       }
+    } catch (error) {
+      setAlertMsg({ type: 'error', text: error.message || 'Failed to load version history.' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleProjectSelect = (pid) => {
+  const handleProjectSelect = async (pid) => {
     setSelectedProjectId(pid);
-    const db = getMockDb();
-    const fList = db.files?.[pid] || [];
-    setFiles(fList);
-    if (fList.length > 0) {
-      setSelectedFileName(fList[0].fileName);
-      loadVersions(pid, fList[0].fileName);
-    } else {
-      setSelectedFileName('');
-      setVersions([]);
+    try {
+      const response = await api.getFiles(pid);
+      const fList = response.data.files || [];
+      setFiles(fList);
+      if (fList.length > 0) {
+        setSelectedFileName(fList[0].fileName);
+        loadVersions(pid, fList[0].fileName);
+      } else {
+        setSelectedFileName('');
+        setVersions([]);
+      }
+    } catch (error) {
+      setAlertMsg({ type: 'error', text: error.message || 'Failed to load project files.' });
     }
   };
 
@@ -82,11 +88,12 @@ export default function VersionHistory({ currentUser }) {
       setVersions(res.data.versions || []);
     } catch (err) {
       console.error('Error fetching versions:', err);
+      setAlertMsg({ type: 'error', text: err.message || 'Failed to fetch file versions.' });
     }
   };
 
   const handleRestore = async (ver) => {
-    if (!window.confirm(`Are you sure you want to restore '${selectedFileName}' to historical version ${ver.versionNumber}? A new S3 version will be generated without losing previous versions.`)) {
+    if (!window.confirm(`Are you sure you want to restore '${selectedFileName}' to historical version ${ver.label}? A new S3 version will be generated without losing previous versions.`)) {
       return;
     }
 
@@ -96,29 +103,44 @@ export default function VersionHistory({ currentUser }) {
       const res = await api.restoreVersion(selectedProjectId, selectedFileName, ver.versionId);
       setAlertMsg({
         type: 'success',
-        text: `Version ${ver.versionNumber} successfully restored! Created new active S3 Version ID: ${res.data.newVersionId.substring(0, 14)}...`
+        text: `Version ${ver.label} successfully restored! Created new active S3 Version ID: ${res.data.newVersionId.substring(0, 14)}...`
       });
       await loadVersions(selectedProjectId, selectedFileName);
     } catch (err) {
-      setAlertMsg({ type: 'error', text: 'Failed to restore historical version.' });
+      setAlertMsg({
+        type: 'error',
+        text: err.response?.data?.detail || err.message || 'Failed to restore historical version.'
+      });
     } finally {
       setRestoringId(null);
     }
   };
 
-  const handleDownload = (ver) => {
-    alert(`Downloading ${selectedFileName} (${ver.versionNumber}) directly from Amazon S3 version archive.`);
+  const handleDownload = async (version) => {
+    try {
+      const response = await api.getVersionDownloadUrl(
+        selectedProjectId,
+        selectedFileName,
+        version.versionId
+      );
+      window.location.assign(response.data.downloadUrl);
+    } catch (error) {
+      setAlertMsg({
+        type: 'error',
+        text: error.response?.data?.detail || error.message || 'Failed to download this file version.'
+      });
+    }
   };
 
   const handlePreview = (ver) => {
     setPreviewFile({
-      fileName: `${selectedFileName} (${ver.versionNumber})`,
+      fileName: `${selectedFileName} (${ver.label})`,
       folder: 'Version Archive',
       fileType: selectedFileName.split('.').pop(),
       sizeBytes: ver.sizeBytes,
-      uploadedBy: ver.modifiedBy,
-      versionCount: versions.length,
-      content: `# ${selectedFileName} - Version ${ver.versionNumber}\n# Version ID: ${ver.versionId}\n# Modified By: ${ver.modifiedBy}\n# Notes: ${ver.notes || 'S3 Versioning Snapshot'}`
+      uploadedBy: ver.uploadedBy,
+      versionId: ver.versionId,
+      versionCount: versions.length
     });
   };
 
@@ -157,7 +179,7 @@ export default function VersionHistory({ currentUser }) {
           </span>
         </h1>
         <p className="text-xs text-slate-500 mt-1">
-          Inspect immutable S3 object version iterations and execute point-in-time file recovery via atomic <code className="text-blue-700 font-mono font-bold">s3:CopyObject</code>.
+          Inspect available S3 object versions and restore a historical file version via <code className="text-blue-700 font-mono font-bold">s3:CopyObject</code>.
         </p>
       </div>
 
@@ -256,7 +278,7 @@ export default function VersionHistory({ currentUser }) {
                         <span className={`text-xs font-mono font-bold px-2.5 py-0.5 rounded-full ${
                           ver.isLatest ? 'bg-sky-500 text-white shadow-xs' : 'bg-slate-100 text-slate-700'
                         }`}>
-                          {ver.versionNumber}
+                          {ver.label}
                         </span>
                         {ver.isLatest && (
                           <span className="text-[11px] font-bold text-sky-700 flex items-center space-x-1">
@@ -274,12 +296,12 @@ export default function VersionHistory({ currentUser }) {
 
                     {/* Modified By */}
                     <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-600 font-medium">
-                      {ver.modifiedBy}
+                      {ver.uploadedBy || 'Unknown'}
                     </td>
 
                     {/* Modified Date */}
                     <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-400 font-mono">
-                      {formatDate(ver.modifiedDate)}
+                      {formatDate(ver.uploadedAt)}
                     </td>
 
                     {/* File Size */}
@@ -289,7 +311,7 @@ export default function VersionHistory({ currentUser }) {
 
                     {/* Notes */}
                     <td className="px-5 py-4 text-xs text-slate-500 max-w-xs truncate">
-                      {ver.notes || 'Uploaded via CloudForge'}
+                      {ver.notes || 'S3 object version'}
                     </td>
 
                     {/* Actions */}

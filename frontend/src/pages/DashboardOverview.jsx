@@ -21,7 +21,6 @@ import {
   Activity
 } from 'lucide-react';
 import { api } from '../services/api';
-import { authService } from '../services/auth';
 import CreateProjectModal from '../components/CreateProjectModal';
 
 export default function DashboardOverview({ 
@@ -37,7 +36,6 @@ export default function DashboardOverview({
   const [filesMap, setFilesMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [dashboardAvailable, setDashboardAvailable] = useState(false);
   const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
@@ -46,27 +44,12 @@ export default function DashboardOverview({
 
   const loadDashboardData = async () => {
     setLoading(true);
-    setDashboardAvailable(false);
     setLoadError('');
-    setProjects([]);
-    setFilesMap({});
-    setActivities([]);
-
-    if (authService.isMockMode()) {
-      setLoadError('Demo mode is active. Sample workspace data is hidden; connect the real backend to view projects and files.');
-      setLoading(false);
-      return;
-    }
-
-    if (!authService.getApiUrl()) {
-      setLoadError('The CloudForge backend is not configured. Set VITE_API_URL to the deployed API Gateway URL to load real workspace data.');
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await api.getProjects();
       const projList = res.data.projects || [];
+      setProjects(projList);
+
       const projectData = await Promise.all(projList.map(async (project) => {
         const [filesResponse, activityResponse] = await Promise.all([
           api.getFiles(project.projectId),
@@ -82,14 +65,11 @@ export default function DashboardOverview({
           }))
         };
       }));
-
-      setProjects(projList);
       setFilesMap(Object.fromEntries(projectData.map(({ projectId, files }) => [projectId, files])));
       setActivities(projectData.flatMap(({ activities }) => activities));
-      setDashboardAvailable(true);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
-      setLoadError(err.response?.data?.detail || err.message || 'Failed to load workspace data from the backend.');
+      setLoadError(err.message || 'Failed to load dashboard data.');
     } finally {
       setLoading(false);
     }
@@ -102,18 +82,19 @@ export default function DashboardOverview({
 
   // Calculations for summary cards
   const totalProjects = projects.length;
-  const allFiles = Object.entries(filesMap).flatMap(([projectId, files]) =>
-    files.map((file) => ({ ...file, projectId }))
-  );
-  const totalFiles = allFiles.length;
-  const totalStorageBytes = allFiles.reduce((total, file) => total + (file.sizeBytes || 0), 0);
+  let totalFiles = 0;
+  Object.values(filesMap).forEach(list => { totalFiles += list.length; });
+
+  const totalStorageBytes = Object.values(filesMap)
+    .flat()
+    .reduce((total, file) => total + (file.sizeBytes || 0), 0);
   const allContributors = new Set();
   projects.forEach(p => {
     if (p.members) p.members.forEach(m => allContributors.add(typeof m === 'string' ? m : m.email));
   });
 
   const formatBytes = (bytes) => {
-    if (!bytes || bytes === 0) return '0 MB';
+    if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -131,6 +112,11 @@ export default function DashboardOverview({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700" role="alert">
+          {loadError}
+        </div>
+      )}
       {/* 1. Welcome Heading & Quick Actions */}
       <div className="space-y-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -140,7 +126,7 @@ export default function DashboardOverview({
               Welcome back, <span className="text-sky-600">{currentUser?.name || 'Researcher'}</span>!
             </h1>
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
-              {currentUser?.role || 'Admin'}
+              {currentUser?.role || 'Member'}
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-500 font-medium">
@@ -153,7 +139,7 @@ export default function DashboardOverview({
         </div>
 
         {/* Quick Action Buttons */}
-        {dashboardAvailable && <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex min-h-10 items-center justify-center space-x-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-2.5 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-700 sm:px-3.5"
@@ -185,23 +171,9 @@ export default function DashboardOverview({
             <Archive className="w-3.5 h-3.5 text-emerald-600" />
             <span>Create Snapshot</span>
           </button>
-        </div>}
+        </div>
       </div>
 
-      {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500" role="status">
-          Loading workspace data…
-        </div>
-      ) : !dashboardAvailable ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8" role="status">
-          <h2 className="text-lg font-bold text-slate-900">Workspace data unavailable</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-700">{loadError}</p>
-          <p className="mt-2 text-xs leading-5 text-slate-600">
-            No sample project or file counts are shown. Once the authenticated backend is configured, this dashboard will load project and file metadata from it.
-          </p>
-        </div>
-      ) : (
-      <>
       {/* 2. Four Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Projects */}
@@ -243,14 +215,22 @@ export default function DashboardOverview({
         {/* Card 4: Storage Used */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-sky-300 transition">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Listed File Size</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Storage Used</span>
             <div className="p-2.5 rounded-xl bg-cyan-50 text-cyan-600 border border-cyan-100">
               <HardDrive className="w-5 h-5" />
             </div>
           </div>
           <p className="text-3xl font-black text-sky-600 mt-2 font-mono">{formatBytes(totalStorageBytes)}</p>
-            <p className="text-[11px] text-slate-500 mt-1 font-medium">Across listed files</p>
-          </div>
+          <p className="text-[11px] text-slate-500 mt-1 font-medium">Across listed project files</p>
+        </div>
+      </div>
+
+      {/* Storage usage is calculated from listed S3 objects; no quota is assumed. */}
+      <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <span className="text-xs font-bold text-slate-800">Total listed file size</span>
+          <p className="text-xs text-slate-500">{formatBytes(totalStorageBytes)} across accessible projects. AWS quota and billing limits have not been verified.</p>
+        </div>
       </div>
 
       {/* 3. Main Split: Recent Projects (Left) + Recent Activities (Right) */}
@@ -273,14 +253,10 @@ export default function DashboardOverview({
             </button>
           </div>
 
-          {projects.length === 0 ? (
-            <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
-              No projects are available for this account.
-            </p>
-          ) : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {projects.slice(0, 4).map((p) => {
               const fileCount = (filesMap[p.projectId] || []).length;
-              const memberCount = p.members?.length || 1;
+              const memberCount = p.members?.length || 0;
               const isSubmitted = p.snapshotStatus === 'SUBMITTED';
 
               return (
@@ -330,36 +306,7 @@ export default function DashboardOverview({
                 </div>
               );
             })}
-          </div>}
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Recent Files</h2>
-            {allFiles.length === 0 ? (
-              <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
-                No files are listed in your accessible projects.
-              </p>
-            ) : (
-              <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
-                {allFiles
-                  .map((file) => ({
-                    ...file,
-                    projectName: projects.find((project) => project.projectId === file.projectId)?.title
-                      || projects.find((project) => (filesMap[project.projectId] || []).includes(file))?.title
-                      || 'Project'
-                  }))
-                  .slice(0, 5)
-                  .map((file, index) => (
-                    <div key={file.fileId || `${file.projectName}-${file.fileName}-${index}`} className="flex items-center justify-between gap-3 p-4">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-800">{file.fileName}</p>
-                        <p className="mt-1 truncate text-xs text-slate-500">{file.projectName}{file.folder ? ` · ${file.folder}` : ''}</p>
-                      </div>
-                      <span className="shrink-0 text-xs text-slate-500">{formatBytes(file.sizeBytes || 0)}</span>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </section>
+          </div>
         </div>
 
         {/* Recent Activities Section */}
@@ -397,8 +344,6 @@ export default function DashboardOverview({
         onClose={() => setShowCreateModal(false)}
         onCreate={handleCreateProject}
       />
-      </>
-      )}
     </div>
   );
 }

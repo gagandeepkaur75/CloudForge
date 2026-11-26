@@ -15,7 +15,7 @@ import SettingsPage from './pages/SettingsPage';
 import { authService } from './services/auth';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser());
   const [currentView, setCurrentView] = useState(() => window.location.pathname === '/login' ? 'login' : ['/dashboard', '/workspace'].includes(window.location.pathname) ? 'app' : 'home');
   const [publicPage, setPublicPage] = useState(() => window.location.pathname || '/');
   const [activeTab, setActiveTab] = useState('dashboard'); // sidebar tabs
@@ -25,23 +25,49 @@ export default function App() {
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    const restoreAuthentication = async () => {
+      let restoredUser = null;
+      try {
+        restoredUser = await authService.restoreSession();
+      } catch (error) {
+        console.error('Unable to restore the Cognito session:', error);
+      }
+
+      if (!active) return;
+      setCurrentUser(restoredUser);
+      if (['/dashboard', '/workspace'].includes(window.location.pathname) && !restoredUser) {
+        window.history.replaceState({}, '', '/login');
+        setCurrentView('login');
+      }
+      setInitialized(true);
+    };
+
+    restoreAuthentication();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     const onPopState = () => {
       const path = window.location.pathname || '/';
       if (path === '/login') setCurrentView('login');
-      else if (path === '/dashboard' || path === '/workspace') setCurrentView('app');
+      else if (path === '/dashboard' || path === '/workspace') {
+        if (currentUser) setCurrentView('app');
+        else {
+          window.history.replaceState({}, '', '/login');
+          setCurrentView('login');
+        }
+      }
       else { setPublicPage(path); setCurrentView('home'); }
     };
     window.addEventListener('popstate', onPopState);
-    const user = authService.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-    }
-    setInitialized(true);
     return () => window.removeEventListener('popstate', onPopState);
-  }, []);
+  }, [currentUser]);
 
-  const navigate = (path) => {
-    const nextPath = path || '/';
+  const navigate = (path, authenticated = Boolean(currentUser)) => {
+    const requestedPath = path || '/';
+    const requiresAuthentication = ['/dashboard', '/workspace'].includes(requestedPath);
+    const nextPath = requiresAuthentication && !authenticated ? '/login' : requestedPath;
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath);
     if (nextPath === '/login') setCurrentView('login');
     else if (nextPath === '/dashboard' || nextPath === '/workspace') setCurrentView('app');
@@ -51,16 +77,21 @@ export default function App() {
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
-    navigate('/dashboard');
+    navigate('/dashboard', true);
     setActiveTab('dashboard');
     setSelectedProject(null);
   };
 
-  const handleLogout = () => {
-    authService.signOut();
-    setCurrentUser(null);
-    setSelectedProject(null);
-    navigate('/');
+  const handleLogout = async () => {
+    try {
+      await authService.signOut();
+    } catch (error) {
+      console.error('Cognito global sign-out failed; the local session was cleared.', error);
+    } finally {
+      setCurrentUser(null);
+      setSelectedProject(null);
+      navigate('/');
+    }
   };
 
   const handleUserChange = (newUser) => {
@@ -117,7 +148,6 @@ export default function App() {
           currentUser={currentUser}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
           onLogout={handleLogout}
-          onUserChange={handleUserChange}
           onNavigateTab={(tab) => {
             setActiveTab(tab);
             setSelectedProject(null);
@@ -143,15 +173,19 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'workspace' && (
+          {activeTab === 'workspace' && selectedProject && (
             <ProjectWorkspace
-              project={selectedProject || { projectId: 'proj-ucs531-team04', title: 'CloudForge Serverless Workspace', description: 'Academic project workspace.' }}
+              project={selectedProject}
               currentUser={currentUser}
               onBack={() => {
                 setSelectedProject(null);
                 setActiveTab('projects');
               }}
             />
+          )}
+
+          {activeTab === 'workspace' && !selectedProject && (
+            <MyProjects onSelectProject={handleSelectProject} />
           )}
 
           {activeTab === 'team' && (

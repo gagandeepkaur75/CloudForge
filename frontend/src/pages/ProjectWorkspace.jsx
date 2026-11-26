@@ -27,7 +27,7 @@ import {
   MoreVertical,
   Clock
 } from 'lucide-react';
-import { api, getMockDb } from '../services/api';
+import { api } from '../services/api';
 import CreateFolderModal from '../components/CreateFolderModal';
 import FilePreviewModal from '../components/FilePreviewModal';
 import RenameModal from '../components/RenameModal';
@@ -70,11 +70,12 @@ export default function ProjectWorkspace({ project, currentUser, onBack }) {
       const pRes = await api.getProjectDetails(project.projectId);
       setProjectData(pRes.data);
 
-      const fldRes = await api.getFolders(project.projectId);
-      setFolders(fldRes.data.folders || ['Source Code', 'Datasets', 'Reports', 'Documentation', 'Presentations']);
-
       const filesRes = await api.getFiles(project.projectId);
-      setFiles(filesRes.data.files || []);
+      const projectFiles = filesRes.data.files || [];
+      setFiles(projectFiles);
+      setFolders([...new Set(projectFiles.map((file) => file.folder || file.category).filter(Boolean))]);
+    } catch (error) {
+      setUploadStatus({ type: 'error', text: error.message || 'Failed to load project workspace.' });
     } finally {
       setLoading(false);
     }
@@ -89,25 +90,23 @@ export default function ProjectWorkspace({ project, currentUser, onBack }) {
     setUploadStatus(null);
 
     try {
-      const urlRes = await api.getUploadUrl(project.projectId, file.name, file.type);
-      const { uploadUrl } = urlRes.data;
+      const urlRes = await api.getUploadUrl(project.projectId, file.name, file.type, targetFolder);
+      const { uploadUrl, uploadHeaders } = urlRes.data;
 
       await api.uploadFileToS3(uploadUrl, file, (progress) => {
         setUploadProgress({ fileName: file.name, percent: progress.percent });
-      });
-
-      await api.registerUploadedFile(project.projectId, file, targetFolder);
+      }, uploadHeaders);
 
       setUploadStatus({
         type: 'success',
-        text: `File '${file.name}' successfully stored in folder '${targetFolder}' with S3 Versioning!`
+        text: `File '${file.name}' was uploaded to Amazon S3.`
       });
 
       await loadWorkspace();
     } catch (err) {
       setUploadStatus({
         type: 'error',
-        text: `Failed to upload '${file.name}'. Please check network connection.`
+        text: err.response?.data?.detail || err.message || `Failed to upload '${file.name}'.`
       });
     } finally {
       setTimeout(() => setUploadProgress(null), 1500);
@@ -115,51 +114,61 @@ export default function ProjectWorkspace({ project, currentUser, onBack }) {
   };
 
   const handleCreateFolder = async (folderName) => {
-    await api.createFolder(project.projectId, folderName);
-    await loadWorkspace();
+    try {
+      await api.createFolder(project.projectId, folderName);
+      await loadWorkspace();
+    } catch (error) {
+      setUploadStatus({ type: 'error', text: error.message });
+    }
   };
 
   const handleDeleteFolder = async (folderName, e) => {
     e.stopPropagation();
     if (!window.confirm(`Delete folder '${folderName}' and all files inside?`)) return;
-    await api.deleteFolder(project.projectId, folderName);
-    if (currentFolder === folderName) setCurrentFolder('All');
-    await loadWorkspace();
+    try {
+      await api.deleteFolder(project.projectId, folderName);
+      if (currentFolder === folderName) setCurrentFolder('All');
+      await loadWorkspace();
+    } catch (error) {
+      setUploadStatus({ type: 'error', text: error.message });
+    }
   };
 
-  const handleDeleteFile = async (fileId) => {
+  const handleDeleteFile = async (fileName) => {
     if (!window.confirm('Delete this file from AWS S3 workspace?')) return;
-    await api.deleteFile(project.projectId, fileId);
-    await loadWorkspace();
+    try {
+      await api.deleteFile(project.projectId, fileName);
+      await loadWorkspace();
+    } catch (error) {
+      setUploadStatus({ type: 'error', text: error.message || 'File deletion failed.' });
+    }
   };
 
   const handleRename = async (newName) => {
     if (!renameTarget) return;
     if (renameTarget.type === 'file') {
-      await api.renameFile(project.projectId, renameTarget.id, newName);
-      await loadWorkspace();
+      try {
+        await api.renameFile(project.projectId, renameTarget.id, newName);
+        await loadWorkspace();
+      } catch (error) {
+        setUploadStatus({ type: 'error', text: error.message || 'File rename failed.' });
+      }
     }
     setRenameTarget(null);
   };
 
   const handleDownload = async (file) => {
     try {
-      const res = await api.createShareLink({
-        projectId: project.projectId,
-        projectName: projectData.title,
-        fileName: file.fileName,
-        permission: 'Download Access',
-        expiryHours: 1
-      });
-      window.open(res.data.shareUrl, '_blank');
+      const response = await api.getDownloadUrl(project.projectId, file.fileName);
+      window.location.assign(response.data.downloadUrl);
     } catch (err) {
-      console.error('Download link error:', err);
+      setUploadStatus({ type: 'error', text: err.response?.data?.detail || err.message || 'Download link generation failed.' });
     }
   };
 
   // Filter files by folder and search query
   const filteredFiles = files.filter((f) => {
-    const matchesFolder = currentFolder === 'All' ? true : f.folder === currentFolder;
+    const matchesFolder = currentFolder === 'All' ? true : (f.folder || f.category) === currentFolder;
     const matchesSearch = f.fileName.toLowerCase().includes(fileSearch.toLowerCase());
     return matchesFolder && matchesSearch;
   });
@@ -222,7 +231,7 @@ export default function ProjectWorkspace({ project, currentUser, onBack }) {
               <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
                 projectData.snapshotStatus === 'SUBMITTED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-sky-50 text-sky-700 border-sky-200'
               }`}>
-                {projectData.snapshotStatus === 'SUBMITTED' ? 'SUBMISSION SEALED' : 'ACTIVE DEVELOPMENT'}
+                {projectData.snapshotStatus === 'SUBMITTED' ? 'SNAPSHOT CREATED' : 'ACTIVE DEVELOPMENT'}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1 max-w-2xl">{projectData.description}</p>
@@ -282,7 +291,7 @@ export default function ProjectWorkspace({ project, currentUser, onBack }) {
               </button>
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Target folder: <span className="font-bold text-slate-700">{currentFolder === 'All' ? 'Source Code' : currentFolder}</span> • Auto S3 Versioning Enabled
+              Target folder: <span className="font-bold text-slate-700">{currentFolder === 'All' ? 'Source Code' : currentFolder}</span> • Files stored in Amazon S3
             </p>
           </div>
         </div>

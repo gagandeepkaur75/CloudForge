@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, FileText, Download, Calendar, HardDrive, User, CheckCircle2 } from 'lucide-react';
+import { X, FileText, Download } from 'lucide-react';
 
 export default function FilePreviewModal({ isOpen, onClose, file, onDownload }) {
   if (!isOpen || !file) return null;
@@ -45,11 +45,11 @@ export default function FilePreviewModal({ isOpen, onClose, file, onDownload }) 
             </div>
             <div>
               <span className="text-slate-400 block font-bold uppercase text-[10px]">Uploaded By</span>
-              <span className="font-semibold text-slate-800 truncate block">{file.uploadedBy || 'Team Member'}</span>
+              <span className="font-semibold text-slate-800 truncate block">{file.uploadedBy || 'Unknown'}</span>
             </div>
             <div>
-              <span className="text-slate-400 block font-bold uppercase text-[10px]">S3 Versions</span>
-              <span className="font-bold text-blue-600 font-mono">{file.versionCount || 1} iterations</span>
+              <span className="text-slate-400 block font-bold uppercase text-[10px]">Versions</span>
+              <span className="font-bold text-blue-600 font-mono">{file.versionCount ?? 'Unknown'}</span>
             </div>
           </div>
 
@@ -57,20 +57,19 @@ export default function FilePreviewModal({ isOpen, onClose, file, onDownload }) 
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">File Content Preview</span>
-              <span className="text-[11px] font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center space-x-1">
-                <CheckCircle2 className="w-3 h-3" />
-                <span>Verified Integrity</span>
+              <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                Preview unavailable
               </span>
             </div>
             <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs overflow-x-auto max-h-60 leading-relaxed border border-slate-800 shadow-inner">
-              <pre>{file.content || `# ${file.fileName}\n# Stored on Amazon S3 with EventBridge notifications\n\nContent ready for inspection and processing.`}</pre>
+              <p>Download the file to inspect its contents.</p>
             </div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-          <span className="text-xs text-slate-500 font-mono">Amazon S3 Versioned Object</span>
+          <span className="text-xs text-slate-500 font-mono">Stored in project workspace</span>
           <div className="flex space-x-2">
             <button
               onClick={onClose}

@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
-import { 
-  X, 
-  UserPlus, 
-  Mail, 
-  Shield, 
-  Check, 
-  AlertCircle 
+import {
+  X,
+  UserPlus,
+  Mail,
+  Shield,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import { api } from '../services/api';
 
-export default function InviteModal({ 
-  isOpen, 
-  onClose, 
-  projectId, 
-  onMemberInvited 
+export default function InviteModal({
+  isOpen,
+  onClose,
+  projectId,
+  onMemberInvited
 }) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('Contributor');
@@ -30,14 +30,14 @@ export default function InviteModal({
     setStatusMsg(null);
     try {
       await api.inviteMember(projectId, email, role);
-      setStatusMsg({ type: 'success', text: `Invitation sent to ${email} as ${role}!` });
+      setStatusMsg({ type: 'success', text: `${email} was added to the project as ${role}. They can access it after signing in with this email.` });
       setEmail('');
       if (onMemberInvited) onMemberInvited();
     } catch (err) {
       console.error('Failed to invite member:', err);
-      setStatusMsg({ 
-        type: 'error', 
-        text: err.response?.data?.detail || 'Failed to invite member. Only ProjectLead can invite.' 
+      setStatusMsg({
+        type: 'error',
+        text: err.response?.data?.detail || err.message || 'Failed to add project member.'
       });
     } finally {
       setLoading(false);
@@ -58,7 +58,7 @@ export default function InviteModal({
               <p className="text-xs text-slate-500">UCS531 Student Collaborator</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition"
           >
@@ -93,8 +93,10 @@ export default function InviteModal({
             </label>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { id: 'Contributor', desc: 'Can upload, recover, and share files' },
-                { id: 'ProjectLead', desc: 'Full workspace management + snapshots' }
+                { id: 'Contributor', desc: 'Upload, delete and share files' },
+                { id: 'Editor', desc: 'Edit project files and recover versions' },
+                { id: 'Viewer', desc: 'View project files and history' },
+                { id: 'Admin', desc: 'Manage members and create snapshots' }
               ].map((r) => (
                 <button
                   key={r.id}
@@ -118,8 +120,8 @@ export default function InviteModal({
 
           {statusMsg && (
             <div className={`p-3 rounded-xl text-xs flex items-center space-x-2 font-medium ${
-              statusMsg.type === 'success' 
-                ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+              statusMsg.type === 'success'
+                ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
                 : 'bg-red-50 border border-red-200 text-red-700'
             }`}>
               {statusMsg.type === 'success' ? <Check className="w-4 h-4 shrink-0 text-emerald-600" /> : <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />}
@@ -141,7 +143,7 @@ export default function InviteModal({
               className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/25 transition disabled:opacity-50 flex items-center space-x-1.5"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>{loading ? 'Adding...' : 'Send Invitation'}</span>
+              <span>{loading ? 'Adding...' : 'Add Member'}</span>
             </button>
           </div>
         </form>

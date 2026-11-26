@@ -15,7 +15,7 @@ import {
   Lock, 
   Globe 
 } from 'lucide-react';
-import { api, getMockDb } from '../services/api';
+import { api } from '../services/api';
 import CreateProjectModal from '../components/CreateProjectModal';
 
 export default function MyProjects({ onSelectProject }) {
@@ -26,6 +26,7 @@ export default function MyProjects({ onSelectProject }) {
   const [statusFilter, setStatusFilter] = useState('All');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
+  const [operationError, setOperationError] = useState('');
 
   // Edit modal
   const [editingProject, setEditingProject] = useState(null);
@@ -38,11 +39,19 @@ export default function MyProjects({ onSelectProject }) {
 
   const loadProjects = async () => {
     setLoading(true);
+    setOperationError('');
     try {
       const res = await api.getProjects();
-      setProjects(res.data.projects || []);
-      const db = getMockDb();
-      setFilesMap(db.files || {});
+      const projectList = res.data.projects || [];
+      setProjects(projectList);
+      const projectFiles = await Promise.all(projectList.map(async (project) => {
+        const filesResponse = await api.getFiles(project.projectId);
+        return [project.projectId, filesResponse.data.files || []];
+      }));
+      setFilesMap(Object.fromEntries(projectFiles));
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+      setOperationError(error.message || 'Failed to load projects.');
     } finally {
       setLoading(false);
     }
@@ -56,9 +65,14 @@ export default function MyProjects({ onSelectProject }) {
   const handleDelete = async (projectId, e) => {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this project workspace and all its versioned files?')) return;
-    await api.deleteProject(projectId);
-    setActiveMenuId(null);
-    await loadProjects();
+    setOperationError('');
+    try {
+      await api.deleteProject(projectId);
+      setActiveMenuId(null);
+      await loadProjects();
+    } catch (error) {
+      setOperationError(error.message || 'Project deletion failed.');
+    }
   };
 
   const handleOpenEdit = (project, e) => {
@@ -72,9 +86,14 @@ export default function MyProjects({ onSelectProject }) {
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     if (!editTitle.trim()) return;
-    await api.updateProject(editingProject.projectId, { title: editTitle, description: editDesc });
-    setEditingProject(null);
-    await loadProjects();
+    setOperationError('');
+    try {
+      await api.updateProject(editingProject.projectId, { title: editTitle, description: editDesc });
+      setEditingProject(null);
+      await loadProjects();
+    } catch (error) {
+      setOperationError(error.message || 'Project update failed.');
+    }
   };
 
   const filteredProjects = projects.filter((p) => {
@@ -98,6 +117,11 @@ export default function MyProjects({ onSelectProject }) {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header & Controls */}
+      {operationError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700" role="alert">
+          {operationError}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">

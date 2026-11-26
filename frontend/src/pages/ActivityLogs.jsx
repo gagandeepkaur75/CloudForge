@@ -16,7 +16,7 @@ import {
   Clock, 
   User 
 } from 'lucide-react';
-import { api, getMockDb } from '../services/api';
+import { api } from '../services/api';
 
 export default function ActivityLogs({ currentUser }) {
   const [activities, setActivities] = useState([]);
@@ -25,6 +25,7 @@ export default function ActivityLogs({ currentUser }) {
   const [typeFilter, setTypeFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('All');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     loadLogs();
@@ -32,9 +33,22 @@ export default function ActivityLogs({ currentUser }) {
 
   const loadLogs = async () => {
     setLoading(true);
+    setLoadError('');
     try {
-      const db = getMockDb();
-      setActivities(db.activities || []);
+      const projectsResponse = await api.getProjects();
+      const projects = projectsResponse.data.projects || [];
+      const logs = await Promise.all(projects.map(async (project) => {
+        const response = await api.getActivityLogs(project.projectId);
+        return (response.data.activities || []).map((activity) => ({
+          ...activity,
+          projectId: project.projectId,
+          projectName: project.title
+        }));
+      }));
+      setActivities(logs.flat());
+    } catch (error) {
+      console.error('Failed to load activity logs:', error);
+      setLoadError(error.message || 'Failed to load activity logs.');
     } finally {
       setLoading(false);
     }
@@ -109,6 +123,11 @@ export default function ActivityLogs({ currentUser }) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700" role="alert">
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div>
         <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">

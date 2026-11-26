@@ -29,12 +29,12 @@ export default function SnapshotModal({
     setLoading(true);
     setError(null);
     try {
-      const res = await api.createSnapshot(projectId);
+      const res = await api.createSnapshot({ projectId });
       setSnapshotResult(res.data);
       if (onSnapshotSuccess) onSnapshotSuccess(res.data);
     } catch (err) {
       console.error('Failed to create snapshot:', err);
-      setError(err.response?.data?.detail || 'Failed to bundle submission snapshot.');
+      setError(err.response?.data?.detail || err.message || 'Failed to bundle submission snapshot.');
     } finally {
       setLoading(false);
     }
@@ -69,17 +69,17 @@ export default function SnapshotModal({
               <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 text-xs text-blue-900 flex items-start space-x-3">
                 <AlertTriangle className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
-                  Creating a submission snapshot locks current project assets into an immutable S3 prefix <code className="text-blue-800 bg-white px-1.5 py-0.5 rounded font-mono font-bold">/snapshots/{projectId}/[timestamp]/</code> and generates a bundled <code className="text-blue-800 bg-white px-1.5 py-0.5 rounded font-mono font-bold">.zip</code> archive for faculty evaluation.
+                  Creating a snapshot copies the current project assets into an S3 prefix <code className="text-blue-800 bg-white px-1.5 py-0.5 rounded font-mono font-bold">/snapshots/{projectId}/[timestamp]/</code> and generates a bundled <code className="text-blue-800 bg-white px-1.5 py-0.5 rounded font-mono font-bold">.zip</code> archive for download.
                 </p>
               </div>
 
               <div className="space-y-2 text-xs text-slate-700">
                 <h4 className="font-bold text-slate-900">Automated Pipeline Actions:</h4>
                 <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
-                  <li>Atomic copy of all latest active files into immutable directory</li>
+                  <li>Copy of current project files into a timestamped S3 prefix</li>
                   <li>In-memory .zip bundle generation with all source code & reports</li>
                   <li>Update project status to <span className="text-emerald-700 font-mono font-bold">SUBMITTED</span></li>
-                  <li>Record immutable audit log into <span className="text-blue-700 font-mono font-bold">CloudForge_ActivityLogs</span></li>
+                  <li>Record snapshot activity in <span className="text-blue-700 font-mono font-bold">CloudForge_ActivityLogs</span></li>
                 </ul>
               </div>
 
@@ -95,7 +95,7 @@ export default function SnapshotModal({
                 className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-md shadow-blue-500/25 transition flex items-center justify-center space-x-2 disabled:opacity-50"
               >
                 <Lock className="w-4 h-4" />
-                <span>{loading ? 'Bundling and Uploading Snapshot...' : 'Confirm & Generate Immutable Snapshot'}</span>
+                <span>{loading ? 'Bundling and Uploading Snapshot...' : 'Create Snapshot'}</span>
               </button>
             </>
           ) : (
@@ -106,7 +106,7 @@ export default function SnapshotModal({
                 </div>
                 <h4 className="text-base font-extrabold text-slate-900">Submission Snapshot Created!</h4>
                 <p className="text-xs text-slate-500 mt-1">
-                  Your project has been sealed and archived on AWS S3.
+                  A copy of the current project files and a ZIP archive were created in Amazon S3.
                 </p>
               </div>
 
