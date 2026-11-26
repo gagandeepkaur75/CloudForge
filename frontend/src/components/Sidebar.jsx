@@ -9,7 +9,6 @@ import {
   Archive, 
   Settings, 
   Cloud, 
-  HardDrive,
   X
 } from 'lucide-react';
 
@@ -28,20 +27,8 @@ export default function Sidebar({
   currentTab, 
   onSelectTab, 
   isOpen, 
-  onCloseMobile,
-  totalStorageBytes = 19630000 
+  onCloseMobile
 }) {
-  const maxStorageBytes = 100 * 1024 * 1024; // 100 MB quota for student teams
-  const storagePercentage = Math.min(100, Math.round((totalStorageBytes / maxStorageBytes) * 100));
-
-  const formatBytes = (bytes) => {
-    if (!bytes || bytes === 0) return '0 MB';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
   return (
     <>
       {/* Mobile Backdrop */}
@@ -101,29 +88,6 @@ export default function Sidebar({
               </button>
             );
           })}
-        </div>
-
-        {/* Storage Widget Card */}
-        <div className="p-4 m-3 rounded-2xl bg-slate-900/90 border border-slate-800">
-          <div className="flex items-center justify-between text-xs mb-2">
-            <span className="font-bold text-slate-200 flex items-center space-x-1.5">
-              <HardDrive className="w-3.5 h-3.5 text-sky-400" />
-              <span>S3 Storage</span>
-            </span>
-            <span className="text-[11px] text-sky-400 font-mono font-bold">{storagePercentage}%</span>
-          </div>
-
-          <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden mb-2">
-            <div 
-              className="bg-gradient-to-r from-sky-400 to-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${storagePercentage}%` }}
-            ></div>
-          </div>
-
-          <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
-            <span>{formatBytes(totalStorageBytes)}</span>
-            <span>of 100 MB</span>
-          </div>
         </div>
 
         {/* Footer info */}
