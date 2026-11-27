@@ -19,7 +19,9 @@ CloudForge lets a student team keep all project files in one place with **automa
 
 | Team member | Roll no. |
 | :--- | :--- |
-| _Add team members here_ | |
+| Gagandeep Kaur | 1024170063 |
+| Puneet Singh | 1024170066 |
+| Aditya Gupta | 1024170204 |
 
 ---
 
