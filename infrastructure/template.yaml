@@ -13,8 +13,75 @@ Globals:
         PROJECTS_TABLE: !Ref ProjectsTable
         FILE_VERSIONS_TABLE: !Ref FileVersionsTable
         ACTIVITY_LOGS_TABLE: !Ref ActivityLogsTable
+        CLOUDFORGE_ALLOWED_ORIGIN: https://cloud-forge-nine.vercel.app
 
 Resources:
+  CloudForgeHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      CorsConfiguration:
+        AllowOrigins:
+          - https://cloud-forge-nine.vercel.app
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        MaxAge: 600
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_VbsvQD5W7
+              audience:
+                - 547ok56mnn9ii8o36q72lorpbr
+
+  # CognitoUserPool:
+  #   Type: AWS::Cognito::UserPool
+  #   Properties:
+  #     UsernameAttributes:
+  #       - email
+  #     AutoVerifiedAttributes:
+  #       - email
+  #     UsernameConfiguration:
+  #       CaseSensitive: false
+  #     AccountRecoverySetting:
+  #       RecoveryMechanisms:
+  #         - Name: verified_email
+  #           Priority: 1
+  #     Policies:
+  #       PasswordPolicy:
+  #         MinimumLength: 8
+  #         RequireLowercase: true
+  #         RequireNumbers: true
+  #         RequireSymbols: true
+  #         RequireUppercase: true
+  #     Schema:
+  #       - Name: name
+  #         Required: true
+  #         Mutable: true
+  #       - Name: email
+  #         Required: true
+  #         Mutable: true
+
+  # CognitoUserPoolClient:
+  #   Type: AWS::Cognito::UserPoolClient
+  #   Properties:
+  #     UserPoolId: !Ref CognitoUserPool
+  #     GenerateSecret: false
+  #     ExplicitAuthFlows:
+  #       - ALLOW_USER_PASSWORD_AUTH
+  #       - ALLOW_USER_SRP_AUTH
+  #       - ALLOW_REFRESH_TOKEN_AUTH
+  #     PreventUserExistenceErrors: ENABLED
+
   # ----------------------------------------------------------------------------
   # Storage: S3 Bucket with Versioning & EventBridge enabled
   # ----------------------------------------------------------------------------
@@ -31,8 +98,8 @@ Resources:
         CorsRules:
           - AllowedHeaders: ['*']
             AllowedMethods: [GET, PUT, POST, HEAD]
-            AllowedOrigins: ['*']
-            ExposeHeaders: [ETag, x-amz-version-id]
+            AllowedOrigins: ['https://cloud-forge-nine.vercel.app']
+            ExposedHeaders: [ETag, x-amz-version-id]
             MaxAge: 3000
 
   # ----------------------------------------------------------------------------
@@ -90,6 +157,14 @@ Resources:
     Properties:
       QueueName: cloudforge-file-events-queue
       VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt FileEventsDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  FileEventsDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: cloudforge-file-events-dlq
 
   QueuePolicy:
     Type: AWS::SQS::QueuePolicy
@@ -103,6 +178,9 @@ Resources:
             Resource: !GetAtt FileEventsQueue.Arn
             Principal:
               Service: events.amazonaws.com
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt S3EventsRule.Arn
 
   S3EventsRule:
     Type: AWS::Events::Rule
@@ -130,47 +208,74 @@ Resources:
     Properties:
       CodeUri: ../backend/api_handler/
       Handler: main.handler
-      Policies:
-        - S3CrudPolicy:
-            BucketName: !Ref StorageBucket
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref FileVersionsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ActivityLogsTable
+      Role: arn:aws:iam::444296186342:role/LabRole
+  #     Policies:
+  #       - Version: '2012-10-17'
+  #         Statement:
+  #           - Sid: WorkspaceObjectOperations
+  #             Effect: Allow
+  #             Action:
+  #               - s3:GetObject
+  #               - s3:GetObjectVersion
+  #               - s3:PutObject
+  #               - s3:DeleteObject
+  #             Resource: !Sub '${StorageBucket.Arn}/*'
+  #           - Sid: WorkspaceBucketListing
+  #             Effect: Allow
+  #             Action:
+  #               - s3:ListBucket
+  #               - s3:ListBucketVersions
+  #             Resource: !GetAtt StorageBucket.Arn
+  #       - DynamoDBCrudPolicy:
+  #           TableName: !Ref ProjectsTable
+  #       - DynamoDBCrudPolicy:
+  #           TableName: !Ref FileVersionsTable
+  #       - DynamoDBCrudPolicy:
+  #           TableName: !Ref ActivityLogsTable
       Events:
         RootApi:
           Type: HttpApi
           Properties:
+            ApiId: !Ref CloudForgeHttpApi
             Path: /{proxy+}
             Method: ANY
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   EventWorkerFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../backend/event_worker/
       Handler: worker.lambda_handler
-      Policies:
-        - S3ReadPolicy:
-            BucketName: !Ref StorageBucket
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref FileVersionsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ActivityLogsTable
+      Role: arn:aws:iam::444296186342:role/LabRole
+      # Policies:
+      #   - S3ReadPolicy:
+      #       BucketName: !Ref StorageBucket
+      #   - DynamoDBCrudPolicy:
+      #       TableName: !Ref ProjectsTable
+      #   - DynamoDBCrudPolicy:
+      #       TableName: !Ref FileVersionsTable
+      #   - DynamoDBCrudPolicy:
+      #       TableName: !Ref ActivityLogsTable
       Events:
         SQSEvent:
           Type: SQS
           Properties:
             Queue: !GetAtt FileEventsQueue.Arn
             BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
 
 Outputs:
   ApiEndpoint:
     Description: HTTP API Gateway endpoint URL
-    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+    Value: !Sub "https://${CloudForgeHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID for the frontend configuration
+    Value: us-east-1_VbsvQD5W7
+  CognitoClientId:
+    Description: Public Cognito app client ID for the frontend configuration
+    Value: 547ok56mnn9ii8o36q72lorpbr
   S3Bucket:
     Description: S3 Storage Bucket
     Value: !Ref StorageBucket

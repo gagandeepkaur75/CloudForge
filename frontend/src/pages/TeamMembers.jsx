@@ -84,19 +84,27 @@ export default function TeamMembers({ currentUser }) {
   };
 
   const handleRoleChange = async (email, newRole) => {
+    setAlertMsg(null);
     try {
       await api.updateMemberRole(selectedProjectId, email, newRole);
+      const memberResponse = await api.getTeamMembers(selectedProjectId);
+      setMembers(memberResponse.data.members || []);
+      setAlertMsg({ type: 'success', text: `Updated ${email} role to ${newRole}.` });
     } catch (error) {
-      setAlertMsg({ type: 'error', text: error.message || 'Failed to update member role.' });
+      setAlertMsg({ type: 'error', text: error.response?.data?.detail || error.message || 'Failed to update member role.' });
     }
   };
 
   const handleRemoveMember = async (email) => {
     if (!window.confirm(`Remove ${email} from this project workspace?`)) return;
+    setAlertMsg(null);
     try {
       await api.removeMember(selectedProjectId, email);
+      const memberResponse = await api.getTeamMembers(selectedProjectId);
+      setMembers(memberResponse.data.members || []);
+      setAlertMsg({ type: 'success', text: `Removed ${email} from the project.` });
     } catch (error) {
-      setAlertMsg({ type: 'error', text: error.message || 'Failed to remove member.' });
+      setAlertMsg({ type: 'error', text: error.response?.data?.detail || error.message || 'Failed to remove member.' });
     }
   };
 

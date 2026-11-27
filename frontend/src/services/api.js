@@ -46,24 +46,24 @@ export const api = {
     return apiClient.post('/projects', data);
   },
 
-  updateProject() {
-    return unsupported('Updating projects');
+  updateProject(projectId, updates) {
+    return apiClient.put(projectPath(projectId), updates);
   },
 
-  deleteProject() {
-    return unsupported('Deleting projects');
+  deleteProject(projectId) {
+    return apiClient.delete(projectPath(projectId));
   },
 
-  getFolders() {
-    return unsupported('Project folders');
+  getFolders(projectId) {
+    return apiClient.get(`${projectPath(projectId)}/folders`);
   },
 
-  createFolder() {
-    return unsupported('Creating folders');
+  createFolder(projectId, folderName) {
+    return apiClient.post(`${projectPath(projectId)}/folders`, { folderName });
   },
 
-  deleteFolder() {
-    return unsupported('Deleting folders');
+  deleteFolder(projectId, folderName) {
+    return apiClient.delete(`${projectPath(projectId)}/folders/${encodeURIComponent(folderName)}`);
   },
 
   getFiles(projectId) {
@@ -94,8 +94,8 @@ export const api = {
     return apiClient.delete(filePath(projectId, fileName));
   },
 
-  renameFile() {
-    return unsupported('Renaming files');
+  renameFile(projectId, fileName, newName) {
+    return apiClient.put(`${filePath(projectId, fileName)}/rename`, { newName });
   },
 
   getVersions(projectId, fileName) {
@@ -118,21 +118,21 @@ export const api = {
     return this.restoreVersion(projectId, fileName, versionId);
   },
 
-  shareFile(projectId, fileName, expiryMinutes) {
-    return apiClient.post(`${filePath(projectId, fileName)}/share`, { expiryMinutes });
+  shareFile(projectId, fileName, expiryMinutes, permission = 'Download Access') {
+    return apiClient.post(`${filePath(projectId, fileName)}/share`, { expiryMinutes, permission });
   },
 
   createShareLink(data) {
     const expiryMinutes = data.expiryMinutes || (data.expiryHours || 1) * 60;
-    return this.shareFile(data.projectId, data.fileName, expiryMinutes);
+    return this.shareFile(data.projectId, data.fileName, expiryMinutes, data.permission || 'Download Access');
   },
 
   getSharedLinks() {
-    return unsupported('Listing shared links');
+    return apiClient.get('/shares');
   },
 
-  revokeShareLink() {
-    return unsupported('Revoking shared links');
+  revokeShareLink(linkId) {
+    return apiClient.delete(`/shares/${encodeURIComponent(linkId)}`);
   },
 
   async getTeamMembers(projectId) {
@@ -151,12 +151,12 @@ export const api = {
     return apiClient.post(`${projectPath(projectId)}/members`, { email, role });
   },
 
-  updateMemberRole() {
-    return unsupported('Changing team member roles');
+  updateMemberRole(projectId, email, role) {
+    return apiClient.put(`${projectPath(projectId)}/members/${encodeURIComponent(email)}`, { role });
   },
 
-  removeMember() {
-    return unsupported('Removing team members');
+  removeMember(projectId, email) {
+    return apiClient.delete(`${projectPath(projectId)}/members/${encodeURIComponent(email)}`);
   },
 
   getActivityLogs(projectId) {

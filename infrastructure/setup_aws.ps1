@@ -43,7 +43,7 @@ $corsConfig = @'
     {
       "AllowedHeaders": ["*"],
       "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
-      "AllowedOrigins": ["*"],
+      "AllowedOrigins": ["https://cloud-forge-nine.vercel.app"],
       "ExposeHeaders": ["ETag", "x-amz-version-id"],
       "MaxAgeSeconds": 3000
     }
@@ -94,10 +94,11 @@ aws events put-rule --name $EventRuleName --event-pattern $eventPattern --state 
 aws events put-targets --rule $EventRuleName --targets "Id"="1","Arn"="$QueueArn" --region $Region
 
 # 5. Cognito
-Write-Host "--> 5. Creating Cognito User Pool & Groups..." -ForegroundColor Yellow
+Write-Host "--> 5. Creating Cognito User Pool, Web Client & legacy groups..." -ForegroundColor Yellow
 $UserPoolId = aws cognito-idp create-user-pool --pool-name $UserPoolName --policies '{\"PasswordPolicy\":{\"MinimumLength\":8,\"RequireUppercase\":true,\"RequireLowercase\":true,\"RequireNumbers\":true,\"RequireSymbols\":false}}' --auto-verified-attributes email --username-attributes email --query "UserPool.Id" --output text --region $Region
 $ClientId = aws cognito-idp create-user-pool-client --user-pool-id $UserPoolId --client-name $UserClientName --no-generate-secret --explicit-auth-flows ALLOW_USER_SRP_AUTH ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH --query "UserPoolClient.ClientId" --output text --region $Region
 
+# These groups are not used for project authorization; the API checks DynamoDB membership.
 aws cognito-idp create-group --group-name "ProjectLead" --user-pool-id $UserPoolId --description "Project Leads" --region $Region
 aws cognito-idp create-group --group-name "Contributor" --user-pool-id $UserPoolId --description "Student Contributors" --region $Region
 

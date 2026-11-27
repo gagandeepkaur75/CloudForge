@@ -13,6 +13,7 @@ import ActivityLogs from './pages/ActivityLogs';
 import SubmissionBackup from './pages/SubmissionBackup';
 import SettingsPage from './pages/SettingsPage';
 import { authService } from './services/auth';
+import { api } from './services/api';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser());
@@ -23,6 +24,8 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [totalStorageBytes, setTotalStorageBytes] = useState(null);
+  const [storageAvailable, setStorageAvailable] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -46,6 +49,35 @@ export default function App() {
     restoreAuthentication();
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadStorageUsage = async () => {
+      if (!currentUser || currentView !== 'app' || !import.meta.env?.VITE_API_URL) {
+        if (active) {
+          setStorageAvailable(false);
+          setTotalStorageBytes(null);
+        }
+        return;
+      }
+      try {
+        const res = await api.getProjects();
+        const projects = res.data?.projects || [];
+        const total = projects.reduce((sum, p) => sum + (p.totalStorageBytes || 0), 0);
+        if (active) {
+          setTotalStorageBytes(total);
+          setStorageAvailable(true);
+        }
+      } catch {
+        if (active) {
+          setStorageAvailable(false);
+          setTotalStorageBytes(null);
+        }
+      }
+    };
+    loadStorageUsage();
+    return () => { active = false; };
+  }, [currentUser, currentView, activeTab]);
 
   useEffect(() => {
     const onPopState = () => {
@@ -139,6 +171,8 @@ export default function App() {
         }}
         isOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        totalStorageBytes={totalStorageBytes}
+        storageAvailable={storageAvailable}
       />
 
       {/* Main Content Area (Offset by Sidebar on Desktop) */}

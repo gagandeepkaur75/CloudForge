@@ -3,6 +3,8 @@
 **Course:** Cloud Computing - UCS531  
 **Department:** Computer Science & Engineering, Thapar Institute of Engineering & Technology  
 
+> **Deployment status:** This document currently describes the intended architecture and local implementation. No AWS deployment was performed as part of this work; existing resource state is unverified. Do not present AWS integration, performance measurements, or test outcomes below as verified results until reproduced in the approved sandbox.
+
 **Team Details:**
 * **Gagandeep Kaur** (Roll No: 1024170063, Email: `gkaur10_be24@thapar.edu`)
 * **Puneet Singh** (Roll No: 1024170066, Email: `psingh18_be24@thapar.edu`)
@@ -13,7 +15,7 @@
 ## Abstract
 Modern university computer science curricula increasingly center around multi-member team development projects spanning software design, machine learning models, distributed data processing, and technical reporting. However, academic teams encounter recurrent operational failure modes: destructive overwriting of shared files, loss of critical dataset iterations, absence of role-based authorization, insecure ad-hoc file sharing, and chaotic eleventh-hour project submission compilation. 
 
-This paper presents the design, architecture, and implementation of **CloudForge**, a cloud-native, serverless, and event-driven collaborative workspace deployed on Amazon Web Services (AWS). CloudForge integrates Amazon S3 Object Versioning with Amazon DynamoDB NoSQL metadata tables, decoupled by an asynchronous Amazon EventBridge and Amazon SQS event pipeline. RESTful APIs are engineered via FastAPI on AWS Lambda behind Amazon API Gateway with Amazon Cognito JWT authentication. File transfers are executed entirely out-of-band using S3 Pre-Signed PUT and GET URLs, eliminating compute bottlenecks. The system provides atomic version recovery via `s3:CopyObject` and produces immutable, timestamped final academic submission bundles with automated `.zip` archiving. Performance evaluation demonstrates sub-100ms API response latencies, zero server transfer bottlenecks for multi-gigabyte datasets, and guaranteed event delivery across background worker tasks.
+This report describes the intended design and local implementation of **CloudForge**, a collaborative workspace designed around AWS serverless services. The repository contains a React frontend, a FastAPI backend, and infrastructure definitions for Cognito, API Gateway, Lambda, DynamoDB, and S3. AWS authentication, database persistence, file storage, event processing, performance, and end-to-end behavior were not verified in this work. The backend code includes pre-signed file operations, version recovery, and timestamped ZIP snapshots; snapshots are not immutable because S3 Object Lock is not configured.
 
 ---
 
@@ -39,17 +41,17 @@ CloudForge resolves these challenges by combining cloud-native object versioning
 └────────────────────────────────────────────────────────────────────────────────────────┘
 
   [ 1. CLIENT LAYER ]
-  Student Web Browsers (ProjectLead / Contributor)
+  Student Web Browsers (project roles: Admin / Editor / Contributor / Viewer)
           │
           │ HTTPS
           ▼
   [ 2. PRESENTATION LAYER ]
-  AWS Amplify / S3 Static Web Hosting (React.js + Tailwind CSS SPA)
+  Vercel (current React.js + Tailwind CSS frontend)
           │
           ├── (1) Authenticate User / Obtain JWT Token
           ▼
   [ 3. AUTH & API LAYER ]
-  Amazon Cognito User Pool ──► User Groups: [ ProjectLead | Contributor ]
+  Planned Amazon Cognito User Pool
           │
           ├── (2) HTTPS API Requests + Bearer JWT Token
           ▼
@@ -66,7 +68,7 @@ CloudForge resolves these challenges by combining cloud-native object versioning
   Amazon DynamoDB                          Client Browser ◄──► Amazon S3 Storage Bucket
    ├── CloudForge_Projects                                     ├── S3 Object Versioning: ON
    ├── CloudForge_FileVersions                                 ├── S3 EventBridge: ON
-   └── CloudForge_ActivityLogs                                 └── S3 CORS: Configured
+   └── CloudForge_ActivityLogs                                 └── S3 CORS: Defined in template
           ▲                                                           │
           │                                                           │ Object Created/Deleted
           │                                                           ▼
@@ -80,15 +82,16 @@ CloudForge resolves these challenges by combining cloud-native object versioning
   Amazon CloudWatch (Centralized Metrics, Invocations, Latency & Logs)
 ```
 
-CloudForge is structured into five distinct, loosely coupled layers:
+The target CloudForge architecture is structured into five distinct, loosely coupled layers:
 
 ### 2.1 Layer 1: Client & User Tier
-Users interact with CloudForge via modern web browsers. The system defines two primary roles managed via Amazon Cognito User Groups:
-* **ProjectLead:** Administrative authority capable of creating project workspaces, inviting or removing collaborators, executing point-in-time version restorations, and finalizing academic submission snapshots.
-* **Contributor:** Team members permitted to upload files, generate temporary share links, download assets, and view chronological activity feeds.
+Users interact with CloudForge via modern web browsers. Project roles are stored with project membership and checked by the API:
+* **Admin:** Project owner; can invite members and create snapshots.
+* **Editor / Contributor:** Can perform the file operations allowed by the API.
+* **Viewer:** Can read project data and files.
 
 ### 2.2 Layer 2: Frontend Single Page Application (SPA)
-The user interface is built with React 18, Tailwind CSS, and Lucide icons. Hosted on AWS Amplify or Amazon S3 Static Website Hosting with Amazon CloudFront, it delivers:
+The user interface is built with React 18, Tailwind CSS, and Lucide icons. The current frontend is hosted on Vercel. When connected to a deployed backend, it is designed to provide:
 * Real-time metrics overview (projects count, storage consumed, contributors, submission status).
 * Drag-and-drop file uploader with dynamic S3 upload progress tracking.
 * Filterable multi-category file explorer (Source Code, Dataset, Report & Docs, Presentation).
@@ -97,23 +100,23 @@ The user interface is built with React 18, Tailwind CSS, and Lucide icons. Hoste
 * Chronological event timeline streaming real-time background audit logs.
 
 ### 2.3 Layer 3: Authentication and API Gateway Layer
-* **Amazon Cognito User Pool:** Acts as the OpenID Connect (OIDC) identity provider, handling user registration, password policies (minimum 8 characters, mixed case, numeric requirements), email verification, and token dispensing (Identity, Access, and Refresh Tokens).
-* **Amazon API Gateway:** Configured with a native Cognito JWT Authorizer. Requests arriving without a valid, cryptographically verified JWT are rejected at the edge with HTTP `401 Unauthorized`.
-* **AWS Lambda (REST API Handler):** Executes a lightweight FastAPI application wrapped with the Mangum ASGI adapter. Python 3.11 provides high-performance asynchronous request handling.
+* **Amazon Cognito User Pool:** The SAM template defines user registration, email verification, password reset, and token flows; the pool has not been deployed or tested.
+* **Amazon API Gateway:** The SAM template defines a Cognito-compatible JWT authorizer. Authorization has not been tested against a deployed API.
+* **AWS Lambda (REST API Handler):** The repository contains a FastAPI application wrapped with Mangum; deployment and runtime behavior are unverified.
 
 ### 2.4 Layer 4: Storage & Data Tier
-* **Amazon S3 (`cloudforge-storage-bucket`):** Object storage enforcing:
-  1. **Object Versioning:** Retains every mutation under a unique, immutable S3 `versionId`.
+* **Amazon S3:** The SAM template defines project file and snapshot storage with:
+  1. **Object Versioning:** Intended to retain object revisions under S3 version IDs.
   2. **EventBridge Notifications:** Emits state-change notifications directly to the default event bus.
   3. **CORS Configuration:** Enables secure direct browser `PUT` and `GET` requests from authorized web origins.
 * **Amazon DynamoDB:** Three schemaless, on-demand tables:
   * `CloudForge_Projects`: Partition key `projectId` (String). Stores title, description, owner, member email lists, cumulative storage bytes, and snapshot status.
   * `CloudForge_FileVersions`: Partition key `fileId` (String: `{projectId}/{fileName}`), Sort key `versionId` (String). Stores object size, uploader identity, timestamp, S3 key, and category.
   * `CloudForge_ActivityLogs`: Partition key `projectId` (String), Sort key `timestamp` (String ISO-8601). Stores action codes (`FILE_UPLOADED`, `VERSION_RECOVERED`, `LINK_SHARED`, `SNAPSHOT_CREATED`), actor, and contextual details.
-* **AWS Backup:** Configured with a centralized vault and automated daily protection plan safeguarding DynamoDB tables and S3 buckets with 30-day retention.
+* **AWS Backup:** Not configured or deployed by the SAM template.
 
 ### 2.5 Layer 5: Asynchronous Event Processing & Monitoring
-To ensure file uploads never encounter latency bottlenecks caused by metadata indexing, CloudForge utilizes an asynchronous event pipeline:
+The repository includes code and infrastructure definitions for an asynchronous event pipeline. Its deployed behavior has not been verified:
 1. S3 emits an `Object Created` event upon successful client upload.
 2. Amazon EventBridge evaluates a rule matching `source: ["aws.s3"]` and routes the event payload to an Amazon SQS FIFO/Standard queue (`cloudforge-file-events-queue`).
 3. An SQS-triggered AWS Lambda function (`event_worker/worker.py`) consumes batches of up to 10 events.
@@ -126,15 +129,15 @@ To ensure file uploads never encounter latency bottlenecks caused by metadata in
 
 | AWS Service | Architectural Role | Technical Justification |
 | :--- | :--- | :--- |
-| **AWS Lambda** | Compute | Serverless compute scaling to zero when idle; incurs zero cost during inactive hours; millisecond execution billing. |
+| **AWS Lambda** | Compute | Serverless compute for the API and event worker. Costs and sandbox limits must be confirmed before deployment. |
 | **Amazon S3** | Object Storage | 99.999999999% (11 9's) durability; native object versioning; direct client-to-storage transfer via pre-signed URLs. |
-| **Amazon DynamoDB** | NoSQL Database | Predictable single-digit millisecond latency; on-demand billing requires no capacity provisioning; flexible JSON attributes. |
-| **Amazon API Gateway** | API Management | Built-in Cognito JWT validation; handles throttling, SSL termination, and CORS pre-flight requests at cloud scale. |
-| **Amazon Cognito** | Identity & Auth | Managed identity provider eliminating custom password hashing/storage risks; native RBAC group management. |
+| **Amazon DynamoDB** | NoSQL Database | On-demand NoSQL storage for project and activity records; charges may apply and limits are unverified. |
+| **Amazon API Gateway** | API Management | The template defines Cognito JWT validation and CORS; deployed behavior is unverified. |
+| **Amazon Cognito** | Identity & Auth | Planned managed identity provider for registration and password authentication; project authorization is checked separately by the backend. |
 | **Amazon EventBridge** | Event Routing | Native integration with S3; rule-based filtering; seamless routing to queues without glue code. |
 | **Amazon SQS** | Message Queue | Decouples event generation from background processing; buffers bursts during team submission deadlines. |
 | **Amazon CloudWatch** | Monitoring | Unified aggregation of Lambda execution logs, error metrics, API latencies, and invocation counts. |
-| **AWS Backup** | Disaster Recovery | Policy-driven centralized snapshot scheduling fulfilling university data governance and compliance. |
+| **AWS Backup** | Disaster Recovery | Not configured or deployed; do not assume recovery plans exist. |
 
 ---
 
@@ -167,38 +170,35 @@ To allow external evaluators to review specific deliverables without compromisin
 3. An audit record `LINK_SHARED` is recorded in `CloudForge_ActivityLogs`.
 
 ### 4.4 Automated Submission Snapshots & Archival
-When the project lead finalizes the project:
+When a project admin creates a snapshot:
 1. `POST /projects/{projectId}/snapshot` iterates over all active files under `projects/{projectId}/`.
-2. Each file is copied into an immutable S3 prefix: `snapshots/{projectId}/{timestamp}/`.
+2. Each file is copied into a timestamped S3 prefix: `snapshots/{projectId}/{timestamp}/`.
 3. In-memory zip compilation (`zipfile.ZipFile`) aggregates all assets into a compressed archive `final_submission_{projectId}_{timestamp}.zip` uploaded to S3.
-4. The project status in `CloudForge_Projects` transitions to `SUBMITTED`, locking further modifications and generating a faculty download link.
+4. The project record is updated with snapshot metadata and a temporary download URL is generated. This does not lock the project or provide immutable retention.
 
 ---
 
 ## 5. Verification, Testing & Experimental Results
 
-### 5.1 Test Suite & Functional Validation
+### 5.1 Test Plan & Validation Status
 
 | Test Case ID | Test Description | Expected Result | Actual Result | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **TC-01** | User authentication with Cognito credentials | Valid JWT issued with group claims | Cognito returns valid ID/Access tokens; claims parsed | **PASS** |
-| **TC-02** | Contributor attempts member invitation | HTTP 403 Forbidden | Request rejected; RBAC restriction enforced | **PASS** |
-| **TC-03** | Large file upload via Pre-Signed S3 URL | Direct transfer to S3; SQS event triggered | 50 MB dataset uploaded in 1.4s; SQS received event | **PASS** |
-| **TC-04** | File modification & S3 version creation | Multiple versions recorded with distinct IDs | S3 generated v1 and v2; both visible in drawer | **PASS** |
-| **TC-05** | Point-in-time version restoration | Target version becomes new latest version | `copy_object` generated new version; contents restored | **PASS** |
-| **TC-06** | Pre-Signed share URL expiration | URL expires after configured window | Access returns HTTP 403 `Request has expired` | **PASS** |
-| **TC-07** | Submission snapshot creation | Immutable copy in `/snapshots/` + `.zip` archive | Folder cloned; `.zip` generated and verified | **PASS** |
-| **TC-08** | Recursive event loop prevention | Events in `/snapshots/` ignored by worker | Worker successfully filtered snapshot events | **PASS** |
+| **TC-01** | User registration, confirmation, and login | Cognito accepts valid user and rejects invalid password | Not run; Cognito configuration and availability are unverified | **NOT RUN** |
+| **TC-02** | Project membership authorization | Non-members receive HTTP 403 | Not run against a deployed API | **NOT RUN** |
+| **TC-03** | File upload/download | File is persisted in S3 and downloadable by an authorized member | Not run; S3 configuration and availability are unverified | **NOT RUN** |
+| **TC-04** | File version listing and recovery | Historical version is available and can be restored | Not run against S3 | **NOT RUN** |
+| **TC-05** | Expiring share URL | URL expires after configured window | Not run against S3 | **NOT RUN** |
+| **TC-06** | Snapshot creation | Timestamped S3 files and ZIP can be downloaded | Not run; S3 and DynamoDB configuration and availability are unverified | **NOT RUN** |
+| **TC-07** | Frontend production build | Vite creates a production bundle | `npm run build` completed locally | **PASS (local build only)** |
 
 ### 5.2 Performance & Scalability Benchmarks
-* **API Latency:** Average cold-start invocation latency for the FastAPI Lambda is 820ms; warm invocation latency averages 42ms.
-* **Upload Throughput:** By utilizing direct-to-S3 pre-signed PUT requests, file upload throughput scales linearly with client bandwidth, bypassing the API Gateway 10 MB payload limit and Lambda memory ceilings.
-* **Event Pipeline Latency:** End-to-end time from client upload completion to DynamoDB activity feed update averaged 1.12 seconds under SQS decoupling.
+No cloud performance benchmarks have been run. API latency, upload throughput, event delivery, and AWS costs must be measured after deployment in an approved environment.
 
 ---
 
 ## 6. Conclusion & Future Work
-CloudForge delivers an advanced, resilient, and cost-effective collaborative project environment tailored for academic development teams. By harnessing AWS serverless compute, managed NoSQL databases, object versioning, and asynchronous event streaming, the system eliminates destructive file overwriting, guarantees auditability, enforces role-based access, and automates final submissions.
+CloudForge contains a local frontend and backend implementation plus AWS infrastructure definitions. It is not yet a deployed cloud service. Authentication, DynamoDB persistence, S3 storage, permissions, activity processing, security, and cost behavior require deployment and verification before they can be described as working.
 
 **Future Enhancements:**
 1. Integration of Amazon Rekognition or AWS Lambda container tasks for automated code security scanning and anti-plagiarism checks on uploaded codebases.

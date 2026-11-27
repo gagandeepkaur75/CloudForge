@@ -1,5 +1,9 @@
 # CloudForge: Advanced Cloud-Based Collaborative Project Workspace
-### 100% Serverless, Event-Driven AWS Cloud Architecture for Student Engineering Teams
+### Serverless, Event-Driven AWS Architecture Design for Student Engineering Teams
+
+> **Implementation status:** Stage 1 updates are local code changes only; no AWS deployment was performed as part of this work. Existing AWS resource state is unverified, and Cognito, DynamoDB, S3, and API Gateway have not been end-to-end tested. The current frontend deployment may still use an earlier build. Do not treat the architecture below as a live AWS deployment.
+>
+> The deployment scripts and SAM template can create AWS resources and may incur charges. AWS account permissions, Vocareum sandbox limits, and costs are unverified. Do not run deployment or provisioning commands until an administrator confirms what is permitted and the potential charges are understood.
 
 [![AWS Architecture](https://img.shields.io/badge/AWS-Serverless-orange.svg?logo=amazon-aws)](https://aws.amazon.com/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%2B%20Mangum-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com/)
@@ -34,11 +38,11 @@ Student development teams struggle with:
 ### The CloudForge Solution
 A cloud-native, serverless, and event-driven workspace where student teams:
 * Manage project code, datasets, reports, and slide decks in one centralized hub.
-* Upload/download files directly to **Amazon S3** via **Pre-Signed URLs** with automatic **S3 Object Versioning**.
-* Asynchronously track real-time activity logs via an **EventBridge ➔ SQS ➔ Lambda** background pipeline.
-* Share files externally with time-limited pre-signed links (15 min, 1 hour, 24 hours).
-* Restore historical file versions with a single click using atomic `s3:CopyObject`.
-* Generate immutable, timestamped final academic submission snapshots (`/snapshots/`) with automated `.zip` bundle generation.
+* Designed to upload and download files from **Amazon S3** using pre-signed URLs and S3 Object Versioning when configured.
+* Includes code for activity logging and an **EventBridge ➔ SQS ➔ Lambda** background pipeline; cloud deployment is pending.
+* Supports time-limited pre-signed file links when the backend is deployed.
+* Includes an API for restoring historical file versions using `s3:CopyObject`.
+* Can generate timestamped S3 snapshot folders and `.zip` archives. S3 Object Lock and immutable retention are not configured.
 
 ---
 
@@ -50,13 +54,13 @@ A cloud-native, serverless, and event-driven workspace where student teams:
 └────────────────────────────────────────────────────────────────────────────────────────┘
 
   [ 1. USERS ]
-  Student Development Teams (ProjectLead & Contributor Roles)
+  Student Development Teams (project roles: Admin, Editor, Contributor, Viewer)
       │
       ▼
   [ 2. FRONTEND ]
-  React.js + Tailwind CSS Project Dashboard (AWS Amplify / S3 Static Web Hosting)
+  React.js + Tailwind CSS Project Dashboard (currently hosted on Vercel)
       │
-      ├── Authentication ──► [ Amazon Cognito User Pool + RBAC Groups ]
+      ├── Authentication ──► [ Planned Amazon Cognito User Pool ]
       │
       ├── REST API Calls ──► [ Amazon API Gateway (Cognito JWT Authorizer) ]
       │                            │
@@ -77,19 +81,19 @@ A cloud-native, serverless, and event-driven workspace where student teams:
 ```
 
 ### The 5 Architectural Layers
-1. **Users:** Student team members assigned role-based permissions (`ProjectLead`, `Contributor`).
+1. **Users:** Intended Cognito-authenticated team members with API access determined by project ownership and membership.
 2. **Frontend:** React.js Single Page Application (SPA) with responsive dashboard, metrics cards, drag-and-drop uploader, version history drawer, share modal, and live activity feed.
 3. **Auth + API Layer:**
-   * **Amazon Cognito:** User authentication and RBAC groups (`ProjectLead`, `Contributor`).
-   * **Amazon API Gateway:** REST endpoint router protected by a native Cognito JWT Authorizer.
+   * **Amazon Cognito:** User Pool email/password sign-in, signup confirmation, password reset and JWT issuance.
+   * **Amazon API Gateway:** HTTP API protected by a Cognito-compatible JWT Authorizer; project membership is enforced by the Lambda handler.
    * **AWS Lambda (REST API):** Python 3.11 + FastAPI + Mangum providing high-performance REST APIs.
 4. **Storage & Database Layer:**
-   * **Amazon S3:** Stores code, datasets, reports, presentations, version history, and immutable `/snapshots/` archives. Configured with **Object Versioning**, **EventBridge notifications**, and **CORS**.
+   * **Amazon S3:** The SAM template defines project-file and `/snapshots/` storage, **Object Versioning**, **EventBridge notifications**, and frontend-origin-restricted **CORS**. These resources have not been deployed. S3 Object Lock is not configured.
    * **Amazon DynamoDB:** Three on-demand NoSQL tables:
      * `CloudForge_Projects`: Partition key `projectId`
      * `CloudForge_FileVersions`: PK `fileId`, Sort key `versionId`
      * `CloudForge_ActivityLogs`: PK `projectId`, Sort key `timestamp`
-   * **AWS Backup:** Centralized backup plan protecting DynamoDB and S3 resources.
+   * **AWS Backup:** A sample plan document exists, but the SAM template does not deploy an AWS Backup vault or plan.
 5. **Event Processing & Monitoring Layer:**
    * **Amazon EventBridge:** Captures S3 `Object Created` and `Object Deleted` events and routes them to SQS.
    * **Amazon SQS:** Durable queue (`cloudforge-file-events-queue`) decoupling file storage events from backend processing.
@@ -108,14 +112,14 @@ cloudforge/
 │   ├── src/
 │   │   ├── components/        # Navbar, FileTable, VersionModal, ShareModal, ActivityFeed, InviteModal, SnapshotModal
 │   │   ├── pages/             # Login, DashboardOverview, ProjectWorkspace
-│   │   ├── services/          # api.js (Axios + Cognito JWT + Mock fallback), auth.js
+│   │   ├── services/          # api.js (Axios + Cognito JWT), auth.js
 │   │   ├── App.jsx            # Main app router and state manager
 │   │   ├── index.jsx          # React DOM entry point
 │   │   └── index.css          # Tailwind CSS styling and theme
 │   ├── package.json           # Dependencies: react, tailwindcss, lucide-react, axios
 │   ├── vite.config.js         # Vite dev & build configuration
 │   ├── tailwind.config.js     # Tailwind theme and brand color config
-│   └── .env.example           # REACT_APP_API_URL, REACT_APP_USER_POOL_ID, REACT_APP_CLIENT_ID
+│   └── .env.example           # Vite API URL and Cognito public configuration
 ├── backend/                   # Python Backend & Event Worker
 │   ├── api_handler/           # REST API Lambda (FastAPI + Mangum)
 │   │   ├── main.py            # All REST endpoints with Cognito auth & S3 logic
@@ -140,22 +144,26 @@ cloudforge/
 
 ## 5. REST API Reference
 
-All endpoints (except `/health`) require an `Authorization: Bearer <JWT>` header issued by Amazon Cognito. In local testing, requests can also pass `X-User-Email` and `X-User-Roles` headers.
+The API Gateway JWT authorizer requires a Cognito-issued bearer token for all routes. The backend reads identity only from validated API Gateway authorizer claims. Development identity headers are not accepted. Project-scoped routes additionally check that the authenticated email is the project owner or a member.
 
 | Method | Endpoint | Description | Role / Auth |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/health` | API service health check | Public |
+| `GET` | `/health` | API service health check | Authenticated |
 | `GET` | `/projects` | List projects where user is owner or member | Authenticated |
 | `POST` | `/projects` | Create a new project workspace | Authenticated |
-| `GET` | `/projects/{id}` | Get detailed project metadata and stats | Authenticated |
-| `POST` | `/projects/{id}/members` | Invite team collaborator by email | `ProjectLead` only |
-| `POST` | `/projects/{id}/upload-url` | Generate S3 Pre-Signed PUT URL (valid 300s) | Authenticated |
-| `GET` | `/projects/{id}/files` | List active project files with sizes and versions | Authenticated |
-| `GET` | `/projects/{id}/files/{file}/versions` | Fetch all historical S3 versions for a file | Authenticated |
-| `POST` | `/projects/{id}/files/{file}/recover` | Restore historical version via `s3:CopyObject` | Authenticated |
-| `POST` | `/projects/{id}/files/{file}/share` | Generate S3 Pre-Signed GET URL (15m, 1h, 24h) | Authenticated |
-| `POST` | `/projects/{id}/snapshot` | Create immutable final snapshot and `.zip` archive | Authenticated |
-| `GET` | `/projects/{id}/activities` | Retrieve chronological activity audit logs | Authenticated |
+| `GET` | `/projects/{id}` | Get project metadata | Project owner/member |
+| `POST` | `/projects/{id}/members` | Add a project member | Project Admin |
+| `POST` | `/projects/{id}/upload-url` | Generate S3 Pre-Signed PUT URL (valid 300s) | Project Admin/Editor/Contributor |
+| `GET` | `/projects/{id}/files` | List project files | Project owner/member |
+| `DELETE` | `/projects/{id}/files/{file}` | Delete the current S3 object version (bucket versioning may retain older versions) | Project Admin/Editor/Contributor |
+| `GET` | `/projects/{id}/files/{file}/versions` | Fetch S3 versions for a project file | Project owner/member |
+| `GET` | `/projects/{id}/files/{file}/download` | Generate a temporary file download URL | Project owner/member |
+| `GET` | `/projects/{id}/files/{file}/versions/download?versionId=...` | Generate a temporary historical-version download URL | Project owner/member |
+| `POST` | `/projects/{id}/files/{file}/recover` | Restore historical version via `s3:CopyObject` | Project Admin/Editor |
+| `POST` | `/projects/{id}/files/{file}/share` | Generate an expiring S3 Pre-Signed GET URL | Project Admin/Editor/Contributor |
+| `POST` | `/projects/{id}/snapshot` | Create a point-in-time S3 archive and `.zip` | Project Admin |
+| `GET` | `/projects/{id}/snapshots` | List project snapshots and issue temporary download URLs | Project owner/member |
+| `GET` | `/projects/{id}/activities` | Retrieve chronological activity audit logs | Project owner/member |
 
 ---
 
@@ -170,6 +178,8 @@ All endpoints (except `/health`) require an `Authorization: Bearer <JWT>` header
 ---
 
 ### Step 1: Provision AWS Infrastructure via CLI or SAM
+
+> **Do not run this step without explicit approval.** It creates AWS resources, and charges or sandbox restrictions may apply. This repository has not been validated against the ACCDEV sandbox permissions or its current cost limits.
 
 #### Option A: Automated CLI Script (Recommended)
 On Linux/macOS:
@@ -190,7 +200,7 @@ The script will automatically:
 2. Provision the 3 DynamoDB tables (`CloudForge_Projects`, `CloudForge_FileVersions`, `CloudForge_ActivityLogs`).
 3. Create the SQS queue (`cloudforge-file-events-queue`) with policies allowing EventBridge publishing.
 4. Create the EventBridge rule matching S3 events and routing to SQS.
-5. Create the Cognito User Pool, Web Client, and User Groups (`ProjectLead`, `Contributor`).
+5. Create the Cognito User Pool and app client. Project permissions are checked from project membership in DynamoDB; Cognito groups do not grant project access.
 
 #### Option B: AWS SAM Deployment
 ```bash
@@ -253,18 +263,16 @@ VITE_API_URL=https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com
 VITE_USER_POOL_ID=us-east-1_xxxxxxxxx
 VITE_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
 VITE_AWS_REGION=us-east-1
-VITE_USE_MOCK=false
 ```
 
-> **Note on Local Testing & Demo Mode:**  
-> If AWS credentials are not yet available, leave `VITE_USE_MOCK=true` or click the **"Mock Engine"** toggle on the login screen. CloudForge includes a complete in-browser simulation of S3 versioning, pre-signed URLs, recovery, and final zip archiving!
+> There is no mock-authentication or local-data fallback. The Cognito User Pool, app client, and API Gateway URL must be configured for authentication and project APIs to work. Vite configuration values are public identifiers, not AWS credentials; never put AWS access keys or secrets in frontend environment variables.
 
 #### 2. Run Locally
 ```bash
 npm install
 npm run dev
 ```
-Open `http://localhost:3000` in your browser.
+Open the local URL printed by Vite in your terminal (normally `http://localhost:5173`).
 
 #### 3. Deploy to AWS Amplify
 1. Push your repository to GitHub.
@@ -278,13 +286,7 @@ Open `http://localhost:3000` in your browser.
 
 ## 7. Academic Evaluation & Demonstration Guide
 
-To demonstrate CloudForge for the UCS531 course:
-1. **One-Click Sign In:** Click on **Gagandeep Kaur (ProjectLead)** or **Puneet Singh (Contributor)** to demonstrate Cognito authentication and role-based badges.
-2. **File Upload via S3 Pre-Signed URL:** Drag and drop code or a dataset; observe the upload progress bar and live S3 versioning registration.
-3. **Multi-Versioning & Atomic Recovery:** Upload a modified version of the same file to show `v1` and `v2`. Open the **Version History Modal** and click **"Recover Version"** to watch `s3:CopyObject` restore historical content without deleting history.
-4. **Time-Limited Sharing:** Generate a 15-minute S3 Pre-Signed GET URL and test the direct download link.
-5. **Real-Time Audit Timeline:** Check the event feed on the right updating in real time with `FILE_UPLOADED`, `VERSION_RECOVERED`, and `LINK_SHARED` events.
-6. **Final Academic Snapshot:** Click **"Submit Final Snapshot"** to package all active files into an immutable S3 prefix (`/snapshots/`) and download the generated `.zip` archive.
+There are no seeded demo accounts or instant-login shortcuts. After an AWS deployment is approved and configured, create a Cognito user through the sign-up screen, then verify authentication, project access, file upload/download, version recovery, sharing, activity logs, and snapshot creation. These AWS-backed flows have not yet been deployed or end-to-end tested; S3 snapshots are not immutable unless Object Lock is separately configured.
 
 ---
 

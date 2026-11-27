@@ -49,7 +49,7 @@ cat << 'EOF' > /tmp/s3-cors.json
     {
       "AllowedHeaders": ["*"],
       "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
-      "AllowedOrigins": ["*"],
+      "AllowedOrigins": ["https://cloud-forge-nine.vercel.app"],
       "ExposeHeaders": ["ETag", "x-amz-version-id"],
       "MaxAgeSeconds": 3000
     }
@@ -163,9 +163,9 @@ aws events put-targets \
     --region "${AWS_REGION}"
 
 # ------------------------------------------------------------------------------
-# 5. Amazon Cognito: User Pool, Web Client & RBAC Groups
+# 5. Amazon Cognito: User Pool, Web Client & legacy groups
 # ------------------------------------------------------------------------------
-echo "--> 5. Setting up Amazon Cognito User Pool & Groups..."
+echo "--> 5. Setting up Amazon Cognito User Pool, Web Client & legacy groups..."
 USER_POOL_ID=$(aws cognito-idp create-user-pool \
     --pool-name "${USER_POOL_NAME}" \
     --policies '{"PasswordPolicy":{"MinimumLength":8,"RequireUppercase":true,"RequireLowercase":true,"RequireNumbers":true,"RequireSymbols":false}}' \
@@ -180,7 +180,8 @@ CLIENT_ID=$(aws cognito-idp create-user-pool-client \
     --explicit-auth-flows ALLOW_USER_SRP_AUTH ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH \
     --query "UserPoolClient.ClientId" --output text --region "${AWS_REGION}")
 
-echo "Creating Role-Based Groups: ProjectLead and Contributor..."
+# These groups are not used for project authorization; the API checks DynamoDB membership.
+echo "Creating legacy Cognito groups (not used for project authorization)..."
 aws cognito-idp create-group \
     --group-name "ProjectLead" \
     --user-pool-id "${USER_POOL_ID}" \

@@ -70,10 +70,19 @@ export default function ProjectWorkspace({ project, currentUser, onBack }) {
       const pRes = await api.getProjectDetails(project.projectId);
       setProjectData(pRes.data);
 
-      const filesRes = await api.getFiles(project.projectId);
+      const [filesRes, foldersRes] = await Promise.all([
+        api.getFiles(project.projectId),
+        api.getFolders(project.projectId).catch(() => ({ data: { folders: [] } }))
+      ]);
       const projectFiles = filesRes.data.files || [];
       setFiles(projectFiles);
-      setFolders([...new Set(projectFiles.map((file) => file.folder || file.category).filter(Boolean))]);
+      const mergedFolders = [
+        ...new Set([
+          ...(foldersRes.data?.folders || []),
+          ...projectFiles.map((file) => file.folder || file.category).filter(Boolean)
+        ])
+      ];
+      setFolders(mergedFolders);
     } catch (error) {
       setUploadStatus({ type: 'error', text: error.message || 'Failed to load project workspace.' });
     } finally {
